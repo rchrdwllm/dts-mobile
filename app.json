@@ -9,10 +9,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "bundleIdentifier": "com.rchrdwllm.qrscannergdrive"
     },
     "android": {
-      "package": "com.rwilliam.qrscannergdrive",
+      "package": "com.rchrdwllm.qrscannergdrive",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
