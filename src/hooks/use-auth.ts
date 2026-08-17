@@ -18,8 +18,9 @@ export function useAuth() {
 
   useEffect(() => {
     // Configure native Google One Tap Sign-In on mount
+    const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'autoDetect';
     GoogleOneTapSignIn.configure({
-      webClientId: 'autoDetect',
+      webClientId: clientId,
       scopes: ['https://www.googleapis.com/auth/drive.file'],
     });
   }, []);

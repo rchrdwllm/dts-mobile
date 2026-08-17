@@ -117,4 +117,26 @@ describe('useAuth hook', () => {
     expect(hookValues.idToken).toBeNull();
     expect(hookValues.isAuthenticated).toBe(false);
   });
+
+  it('should use EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID when set', () => {
+    const originalEnv = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = 'test-web-client-id';
+
+    try {
+      act(() => {
+        create(
+          React.createElement(TestComponent, {
+            onRender: () => {},
+          })
+        );
+      });
+
+      expect(GoogleOneTapSignIn.configure).toHaveBeenCalledWith({
+        webClientId: 'test-web-client-id',
+        scopes: ['https://www.googleapis.com/auth/drive.file'],
+      });
+    } finally {
+      process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = originalEnv;
+    }
+  });
 });
