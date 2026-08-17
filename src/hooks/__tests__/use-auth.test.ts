@@ -25,8 +25,8 @@ jest.mock('react-native-nitro-google-signin', () => {
       createAccount: jest.fn(),
       presentExplicitSignIn: jest.fn(),
     },
-    isNoSavedCredentialFoundResponse: jest.fn((res) => res?.status === 'no_saved_credential'),
-    isSuccessResponse: jest.fn((res) => res?.status === 'success'),
+    isNoSavedCredentialFoundResponse: jest.fn((res) => res?.type === 'noSavedCredentialFound'),
+    isSuccessResponse: jest.fn((res) => res?.type === 'success'),
   };
 }, { virtual: true });
 
@@ -59,7 +59,7 @@ describe('useAuth hook', () => {
 
   it('should sign in successfully and update authenticated state', async () => {
     const mockSuccessResponse = {
-      status: 'success',
+      type: 'success',
       data: {
         user: { name: 'John Doe', photo: 'https://avatar.png', email: 'john@example.com' },
         idToken: 'mock-id-token',

@@ -27,24 +27,28 @@ export function useAuth() {
 
   const signIn = async () => {
     try {
-      // Ensure Google Play Services are available (Android specific check, safe on iOS)
+      console.log('[DEBUG] 1. Checking play services...');
       await GoogleOneTapSignIn.checkPlayServices();
 
-      // 1. Try to sign in silently or with saved credentials
+      console.log('[DEBUG] 2. Calling GoogleOneTapSignIn.signIn()...');
       let response = await GoogleOneTapSignIn.signIn();
+      console.log('[DEBUG] signIn() response:', JSON.stringify(response));
 
-      // 2. If no saved credentials found, attempt to prompt to create account
       if (isNoSavedCredentialFoundResponse(response)) {
+        console.log('[DEBUG] 3. No saved credentials. Calling createAccount()...');
         response = await GoogleOneTapSignIn.createAccount();
+        console.log('[DEBUG] createAccount() response:', JSON.stringify(response));
       }
 
-      // 3. If still no credential, show explicit Google Sign-In prompt
       if (isNoSavedCredentialFoundResponse(response)) {
+        console.log('[DEBUG] 4. Still no credentials. Calling presentExplicitSignIn()...');
         response = await GoogleOneTapSignIn.presentExplicitSignIn();
+        console.log('[DEBUG] presentExplicitSignIn() response:', JSON.stringify(response));
       }
 
-      // 4. Handle success response
+      console.log('[DEBUG] 5. Final response type:', response.type);
       if (isSuccessResponse(response)) {
+        console.log('[DEBUG] Sign-in succeeded. User data:', JSON.stringify(response.data.user));
         const { user: googleUser, idToken: token } = response.data;
         setUser({
           name: googleUser.name ?? null,
@@ -53,9 +57,11 @@ export function useAuth() {
         });
         setIdToken(token ?? null);
         setIsAuthenticated(true);
+      } else {
+        console.warn('[DEBUG] Sign-in completed but was NOT success. Response payload:', JSON.stringify(response));
       }
     } catch (error) {
-      console.error('Google sign-in failed:', error);
+      console.error('[DEBUG] Google sign-in threw native exception:', error);
       throw error;
     }
   };
