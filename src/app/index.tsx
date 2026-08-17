@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as Device from 'expo-device';
-import { Platform, StyleSheet, ActivityIndicator, Pressable, View } from 'react-native';
+import { Platform, StyleSheet, ActivityIndicator, Pressable, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Header } from '@/components/header';
@@ -41,6 +41,10 @@ export default function HomeScreen() {
       await signIn();
     } catch (e) {
       console.error('Sign-in failed on Home screen:', e);
+      Alert.alert(
+        'Sign-in Failed',
+        e instanceof Error ? e.message : 'An unknown error occurred during sign-in.'
+      );
     } finally {
       setLoading(false);
     }

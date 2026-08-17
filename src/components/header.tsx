@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Pressable, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, Pressable, View, ActivityIndicator, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
@@ -14,8 +14,11 @@ export function Header() {
     setLoading(true);
     try {
       await signIn();
-    } catch {
-      // Errors are logged in hook, can be handled or displayed here if needed
+    } catch (error) {
+      Alert.alert(
+        'Sign-in Failed',
+        error instanceof Error ? error.message : 'An unknown error occurred during sign-in.'
+      );
     } finally {
       setLoading(false);
     }
@@ -25,8 +28,11 @@ export function Header() {
     setLoading(true);
     try {
       await signOut();
-    } catch {
-      // Handle sign-out error
+    } catch (error) {
+      Alert.alert(
+        'Sign-out Failed',
+        error instanceof Error ? error.message : 'An unknown error occurred during sign-out.'
+      );
     } finally {
       setLoading(false);
     }
