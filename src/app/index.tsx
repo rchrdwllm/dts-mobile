@@ -5,15 +5,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Header } from '@/components/header';
 import { AnimatedIcon } from '@/components/animated-icon';
 import { HintRow } from '@/components/hint-row';
+import { ReferenceInputCard } from '@/components/reference-input-card';
+import { ScanPreviewCard } from '@/components/scan-preview-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function HomeScreen() {
   const { isAuthenticated, signIn, user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [referenceCode, setReferenceCode] = useState('');
 
   const handleSignIn = async () => {
     setLoading(true);
@@ -72,6 +75,14 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <Header />
+
+        <ReferenceInputCard
+          value={referenceCode}
+          onChangeText={setReferenceCode}
+        />
+
+        <ScanPreviewCard inputNumber={referenceCode} />
+
         <ThemedView style={styles.heroSection}>
           <AnimatedIcon />
           <ThemedText type="title" style={styles.title}>
@@ -93,8 +104,12 @@ export default function HomeScreen() {
             hint={<ThemedText type="code">/QRScannerGDrive</ThemedText>}
           />
           <HintRow
-            title="Next Step"
-            hint={<ThemedText type="small">Implement scan inputs & camera scanner</ThemedText>}
+            title="Reference Batch"
+            hint={
+              <ThemedText type="code">
+                {referenceCode ? referenceCode : '(None set)'}
+              </ThemedText>
+            }
           />
         </ThemedView>
 
@@ -115,7 +130,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     alignItems: 'center',
     gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
+    paddingBottom: Spacing.three,
     maxWidth: MaxContentWidth,
   },
   heroSection: {
