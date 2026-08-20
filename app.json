@@ -37,7 +37,13 @@
           "imageWidth": 76
         }
       ],
-      "react-native-nitro-google-signin"
+      "react-native-nitro-google-signin",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow QR Scanner to access your camera to scan QR codes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

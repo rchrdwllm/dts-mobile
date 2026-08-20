@@ -5,8 +5,8 @@ A simplified single-screen mobile viewport container. Clean up the default Expo 
 
 **Blocked by:** 01 — Native Google Sign-In Integration
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] App launches into a single, clean full-screen view with no bottom tab bar or navigation headers.
-- [ ] Unused components, layouts, and explore routes are deleted from the codebase.
-- [ ] App builds successfully, passing type and lint checks (`bunx tsc --noEmit` and `bunx expo lint`).
+- [x] App launches into a single, clean full-screen view with no bottom tab bar or navigation headers.
+- [x] Unused components, layouts, and explore routes are deleted from the codebase.
+- [x] App builds successfully, passing type and lint checks (`bunx tsc --noEmit` and `bunx expo lint`).
