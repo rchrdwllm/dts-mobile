@@ -57,26 +57,17 @@ const formatDateStr = (inputDate?: string): string => {
 };
 
 /**
- * Serializes scan details into formatted XML payload strictly matching Battery_DATA.xml format.
+ * Generates a formatted single <Scan> block string.
  */
-export const serializeScanRecord = ({
-  batteryCode,
-  droneSerial,
-  date,
-  inputNumber,
-  qrCodeData,
-  timestamp,
-}: ScanRecordInput): string => {
-  const bCode = batteryCode ?? inputNumber ?? '';
-  const dSerial = droneSerial ?? qrCodeData ?? '';
-  const formattedDate = formatDateStr(date ?? timestamp);
+const formatScanNode = (scanInput: ScanRecordInput): string => {
+  const bCode = scanInput.batteryCode ?? scanInput.inputNumber ?? '';
+  const dSerial = scanInput.droneSerial ?? scanInput.qrCodeData ?? '';
+  const formattedDate = formatDateStr(scanInput.date ?? scanInput.timestamp);
 
   const escapedBatteryCode = escapeXml(bCode);
   const escapedDroneSerial = escapeXml(dSerial);
 
-  return `<?xml version="1.0" encoding="utf-8"?>
-<QRCodeScans>
-  <Scan>
+  return `  <Scan>
     <BatteryCode>${escapedBatteryCode}</BatteryCode>
     <DroneSerial>${escapedDroneSerial}</DroneSerial>
     <Date>${formattedDate}</Date>
@@ -87,7 +78,56 @@ export const serializeScanRecord = ({
     <FOM2date></FOM2date>
     <FOM3></FOM3>
     <FOM3date></FOM3date>
-  </Scan>
+  </Scan>`;
+};
+
+/**
+ * Serializes scan details into formatted XML payload strictly matching Battery_DATA.xml format.
+ */
+export const serializeScanRecord = ({
+  batteryCode,
+  droneSerial,
+  date,
+  inputNumber,
+  qrCodeData,
+  timestamp,
+}: ScanRecordInput): string => {
+  const scanNode = formatScanNode({
+    batteryCode,
+    droneSerial,
+    date,
+    inputNumber,
+    qrCodeData,
+    timestamp,
+  });
+
+  return `<?xml version="1.0" encoding="utf-8"?>
+<QRCodeScans>
+${scanNode}
 </QRCodeScans>`;
 };
+
+/**
+ * Appends a new scan entry into existing Battery_DATA.xml string before </QRCodeScans>.
+ * If existingXml is null, empty, or malformed without </QRCodeScans>, returns a fresh root document.
+ */
+export const appendScanToXml = (
+  existingXml: string | null | undefined,
+  scanInput: ScanRecordInput
+): string => {
+  if (!existingXml || typeof existingXml !== 'string') {
+    return serializeScanRecord(scanInput);
+  }
+
+  const closeTagIndex = existingXml.indexOf('</QRCodeScans>');
+  if (closeTagIndex === -1) {
+    return serializeScanRecord(scanInput);
+  }
+
+  const scanNode = formatScanNode(scanInput);
+  const beforeCloseTag = existingXml.slice(0, closeTagIndex).trimEnd();
+
+  return `${beforeCloseTag}\n${scanNode}\n</QRCodeScans>`;
+};
+
 

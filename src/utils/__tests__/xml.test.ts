@@ -1,4 +1,4 @@
-import { escapeXml, serializeScanRecord } from '../xml';
+import { escapeXml, serializeScanRecord, appendScanToXml } from '../xml';
 
 describe('escapeXml', () => {
   it('should escape special XML characters', () => {
@@ -75,4 +75,75 @@ describe('serializeScanRecord', () => {
     expect(dateMatch![1]).toBe(todayStr);
   });
 });
+
+describe('appendScanToXml', () => {
+  it('should append a new Scan entry before </QRCodeScans> in existing valid XML', () => {
+    const existingXml = `<?xml version="1.0" encoding="utf-8"?>
+<QRCodeScans>
+  <Scan>
+    <BatteryCode>GE0588927</BatteryCode>
+    <DroneSerial>R12022019</DroneSerial>
+    <Date>2025-08-08</Date>
+    <Replacement></Replacement>
+    <FOM></FOM>
+    <FOMdate></FOMdate>
+    <FOM2></FOM2>
+    <FOM2date></FOMdate>
+    <FOM3></FOM3>
+    <FOM3date></FOM3date>
+  </Scan>
+</QRCodeScans>`;
+
+    const result = appendScanToXml(existingXml, {
+      batteryCode: 'GE0588607',
+      droneSerial: 'R12024007',
+      date: '2025-08-13',
+    });
+
+    expect(result).toContain('<BatteryCode>GE0588927</BatteryCode>');
+    expect(result).toContain('<BatteryCode>GE0588607</BatteryCode>');
+    expect(result).toContain('<DroneSerial>R12024007</DroneSerial>');
+    expect(result.endsWith('</QRCodeScans>')).toBe(true);
+
+    const scanMatches = result.match(/<Scan>/g);
+    expect(scanMatches).not.toBeNull();
+    expect(scanMatches!.length).toBe(2);
+  });
+
+  it('should escape special XML characters when appending', () => {
+    const existingXml = `<?xml version="1.0" encoding="utf-8"?>
+<QRCodeScans>
+</QRCodeScans>`;
+
+    const result = appendScanToXml(existingXml, {
+      batteryCode: 'GE<123>&',
+      droneSerial: 'R120"45\'67',
+      date: '2025-08-13',
+    });
+
+    expect(result).toContain('<BatteryCode>GE&lt;123&gt;&amp;</BatteryCode>');
+    expect(result).toContain('<DroneSerial>R120&quot;45&apos;67</DroneSerial>');
+  });
+
+  it('should fallback to fresh root document if existingXml is null, empty, or malformed', () => {
+    const scanInput = {
+      batteryCode: 'GE0588927',
+      droneSerial: 'R12022019',
+      date: '2025-08-08',
+    };
+
+    const nullResult = appendScanToXml(null, scanInput);
+    expect(nullResult).toContain('<?xml version="1.0" encoding="utf-8"?>');
+    expect(nullResult).toContain('<QRCodeScans>');
+    expect(nullResult).toContain('<BatteryCode>GE0588927</BatteryCode>');
+
+    const emptyResult = appendScanToXml('', scanInput);
+    expect(emptyResult).toContain('<QRCodeScans>');
+
+    const malformedResult = appendScanToXml('<InvalidXml>content</InvalidXml>', scanInput);
+    expect(malformedResult).toContain('<?xml version="1.0" encoding="utf-8"?>');
+    expect(malformedResult).toContain('<QRCodeScans>');
+  });
+});
+
 

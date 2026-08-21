@@ -1,6 +1,9 @@
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin';
 import {
   uploadXmlFile,
+  findFileInFolder,
+  downloadFileContent,
+  updateXmlFile,
   syncScanToGoogleDrive,
   TARGET_FOLDER_ID,
 } from '../gdrive';
@@ -23,6 +26,85 @@ describe('Google Drive Sync API Utilities', () => {
     jest.clearAllMocks();
     mockFetch = jest.fn();
     (globalThis as any).fetch = mockFetch;
+  });
+
+  describe('findFileInFolder', () => {
+    it('should return file ID if matching file exists in target folder', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ files: [{ id: 'existing-file-123', name: 'Battery_DATA.xml' }] }),
+      });
+
+      const fileId = await findFileInFolder(mockAccessToken, TARGET_FOLDER_ID, 'Battery_DATA.xml');
+
+      expect(fileId).toBe('existing-file-123');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining(`https://www.googleapis.com/drive/v3/files?q=name%3D'Battery_DATA.xml'%20and%20'${TARGET_FOLDER_ID}'%20in%20parents%20and%20trashed%3Dfalse`),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${mockAccessToken}`,
+          }),
+        })
+      );
+    });
+
+    it('should return null if file does not exist in target folder', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ files: [] }),
+      });
+
+      const fileId = await findFileInFolder(mockAccessToken, TARGET_FOLDER_ID, 'Battery_DATA.xml');
+
+      expect(fileId).toBeNull();
+    });
+  });
+
+  describe('downloadFileContent', () => {
+    it('should download file content using alt=media parameter', async () => {
+      const existingXml = '<?xml version="1.0"?><QRCodeScans></QRCodeScans>';
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => existingXml,
+      });
+
+      const content = await downloadFileContent(mockAccessToken, 'existing-file-123');
+
+      expect(content).toBe(existingXml);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://www.googleapis.com/drive/v3/files/existing-file-123?alt=media',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${mockAccessToken}`,
+          }),
+        })
+      );
+    });
+  });
+
+  describe('updateXmlFile', () => {
+    it('should make PATCH request to update file content', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'existing-file-123', name: 'Battery_DATA.xml' }),
+      });
+
+      const updatedXml = '<?xml version="1.0"?><QRCodeScans><Scan></Scan></QRCodeScans>';
+      const result = await updateXmlFile(mockAccessToken, 'existing-file-123', updatedXml);
+
+      expect(result).toEqual({ fileId: 'existing-file-123', fileName: 'Battery_DATA.xml' });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://www.googleapis.com/upload/drive/v3/files/existing-file-123?uploadType=media',
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${mockAccessToken}`,
+            'Content-Type': 'application/xml',
+          }),
+          body: updatedXml,
+        })
+      );
+    });
   });
 
   describe('uploadXmlFile', () => {
@@ -51,7 +133,6 @@ describe('Google Drive Sync API Utilities', () => {
         })
       );
 
-      // Verify multipart body syntax
       const fetchCallArgs = mockFetch.mock.calls[0];
       const bodyString = fetchCallArgs[1].body as string;
 
@@ -83,24 +164,81 @@ describe('Google Drive Sync API Utilities', () => {
   });
 
   describe('syncScanToGoogleDrive', () => {
-    it('should upload Battery_DATA.xml directly to TARGET_FOLDER_ID', async () => {
+    it('should fetch existing Battery_DATA.xml, append new scan record, and PATCH updated file', async () => {
       (GoogleOneTapSignIn.getTokens as jest.Mock).mockResolvedValueOnce({
         accessToken: mockAccessToken,
       });
 
-      // Mock file upload
+      const existingXml = `<?xml version="1.0" encoding="utf-8"?>
+<QRCodeScans>
+  <Scan>
+    <BatteryCode>GE0588927</BatteryCode>
+    <DroneSerial>R12022019</DroneSerial>
+    <Date>2025-08-08</Date>
+    <Replacement></Replacement>
+    <FOM></FOM>
+    <FOMdate></FOMdate>
+    <FOM2></FOM2>
+    <FOM2date></FOM2date>
+    <FOM3></FOM3>
+    <FOM3date></FOM3date>
+  </Scan>
+</QRCodeScans>`;
+
+      // 1. Search response: file exists
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ id: 'uploaded-file-id', name: 'Battery_DATA.xml' }),
+        json: async () => ({ files: [{ id: 'existing-file-123', name: 'Battery_DATA.xml' }] }),
       });
 
-      const result = await syncScanToGoogleDrive('BATCH123', 'QR-DATA-XYZ', '2026-08-20T23:55:00.000Z');
+      // 2. Download content response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => existingXml,
+      });
+
+      // 3. Update PATCH response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'existing-file-123', name: 'Battery_DATA.xml' }),
+      });
+
+      const result = await syncScanToGoogleDrive('GE0588607', 'R12024007', '2025-08-13');
 
       expect(GoogleOneTapSignIn.getTokens).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      
-      const fetchCallArgs = mockFetch.mock.calls[0];
-      const bodyString = fetchCallArgs[1].body as string;
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+
+      const patchCallArgs = mockFetch.mock.calls[2];
+      const patchBody = patchCallArgs[1].body as string;
+      expect(patchBody).toContain('<BatteryCode>GE0588927</BatteryCode>');
+      expect(patchBody).toContain('<BatteryCode>GE0588607</BatteryCode>');
+      expect(result).toEqual({ fileId: 'existing-file-123', fileName: 'Battery_DATA.xml' });
+    });
+
+    it('should create a new Battery_DATA.xml file via multipart POST if file does not exist', async () => {
+      (GoogleOneTapSignIn.getTokens as jest.Mock).mockResolvedValueOnce({
+        accessToken: mockAccessToken,
+      });
+
+      // 1. Search response: no file found
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ files: [] }),
+      });
+
+      // 2. Multipart upload response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'new-uploaded-file-id', name: 'Battery_DATA.xml' }),
+      });
+
+      const result = await syncScanToGoogleDrive('BATCH123', 'QR-DATA-XYZ', '2026-08-20');
+
+      expect(GoogleOneTapSignIn.getTokens).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      const postCallArgs = mockFetch.mock.calls[1];
+      const bodyString = postCallArgs[1].body as string;
       expect(bodyString).toContain(
         JSON.stringify({
           name: 'Battery_DATA.xml',
@@ -108,10 +246,10 @@ describe('Google Drive Sync API Utilities', () => {
           parents: [TARGET_FOLDER_ID],
         })
       );
-      expect(result).toEqual({ fileId: 'uploaded-file-id', fileName: 'Battery_DATA.xml' });
+      expect(result).toEqual({ fileId: 'new-uploaded-file-id', fileName: 'Battery_DATA.xml' });
     });
 
-    it('should clear cached token, get a new one, and retry once on 401 Unauthorized', async () => {
+    it('should clear cached token, get a new one, and retry once on 401 Unauthorized during search/download/patch', async () => {
       const mockRefreshedToken = 'mock-refreshed-token-456';
 
       // First token call
@@ -119,7 +257,7 @@ describe('Google Drive Sync API Utilities', () => {
         accessToken: mockAccessToken,
       });
 
-      // Mock upload failing with 401
+      // Mock search failing with 401
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
@@ -133,19 +271,27 @@ describe('Google Drive Sync API Utilities', () => {
         accessToken: mockRefreshedToken,
       });
 
-      // Mock retried upload succeeding
+      // Retried attempt:
+      // 1. Search response: no file found
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ files: [] }),
+      });
+
+      // 2. Multipart POST upload response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ id: 'uploaded-file-id', name: 'Battery_DATA.xml' }),
       });
 
-      const result = await syncScanToGoogleDrive('BATCH123', 'QR-DATA-XYZ', '2026-08-20T23:55:00.000Z');
+      const result = await syncScanToGoogleDrive('BATCH123', 'QR-DATA-XYZ', '2026-08-20');
 
       expect(GoogleOneTapSignIn.clearCachedAccessToken).toHaveBeenCalledWith(mockAccessToken);
       expect(GoogleOneTapSignIn.getTokens).toHaveBeenCalledTimes(2);
-      expect(mockFetch).toHaveBeenCalledTimes(2); // 1. Failed upload (401), 2. Retried upload
+      expect(mockFetch).toHaveBeenCalledTimes(3); // 1. Failed search (401), 2. Retried search, 3. Upload
       expect(result).toEqual({ fileId: 'uploaded-file-id', fileName: 'Battery_DATA.xml' });
     });
   });
 });
+
 
