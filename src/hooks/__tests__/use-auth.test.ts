@@ -24,6 +24,7 @@ jest.mock('react-native-nitro-google-signin', () => {
       checkPlayServices: jest.fn(),
       createAccount: jest.fn(),
       presentExplicitSignIn: jest.fn(),
+      getCurrentUser: jest.fn(),
     },
     isNoSavedCredentialFoundResponse: jest.fn((res) => res?.type === 'noSavedCredentialFound'),
     isSuccessResponse: jest.fn((res) => res?.type === 'success'),
@@ -35,7 +36,9 @@ describe('useAuth hook', () => {
     jest.clearAllMocks();
   });
 
-  it('should initialize with default unauthenticated state and configure GoogleOneTapSignIn', () => {
+  it('should initialize with default unauthenticated state and isLoading false when no saved user', () => {
+    (GoogleOneTapSignIn.getCurrentUser as jest.Mock).mockReturnValue(null);
+
     let hookValues!: ReturnType<typeof useAuth>;
 
     act(() => {
@@ -51,13 +54,78 @@ describe('useAuth hook', () => {
     expect(hookValues.user).toBeNull();
     expect(hookValues.idToken).toBeNull();
     expect(hookValues.isAuthenticated).toBe(false);
+    expect(hookValues.isLoading).toBe(false);
     expect(GoogleOneTapSignIn.configure).toHaveBeenCalledWith({
       webClientId: 'autoDetect',
       scopes: ['https://www.googleapis.com/auth/drive.file'],
     });
+    expect(GoogleOneTapSignIn.getCurrentUser).toHaveBeenCalled();
+  });
+
+  it('should automatically hydrate user session on mount when getCurrentUser returns active user', () => {
+    const mockCurrentUser = {
+      user: {
+        id: '12345',
+        name: 'Jane Doe',
+        photo: 'https://example.com/jane.jpg',
+        email: 'jane@example.com',
+        givenName: 'Jane',
+        familyName: 'Doe',
+      },
+      idToken: 'restored-id-token-abc',
+      scopes: ['https://www.googleapis.com/auth/drive.file'],
+      serverAuthCode: null,
+    };
+
+    (GoogleOneTapSignIn.getCurrentUser as jest.Mock).mockReturnValue(mockCurrentUser);
+
+    let hookValues!: ReturnType<typeof useAuth>;
+
+    act(() => {
+      create(
+        React.createElement(TestComponent, {
+          onRender: (val) => {
+            hookValues = val;
+          },
+        })
+      );
+    });
+
+    expect(hookValues.user).toEqual({
+      name: 'Jane Doe',
+      photo: 'https://example.com/jane.jpg',
+      email: 'jane@example.com',
+    });
+    expect(hookValues.idToken).toBe('restored-id-token-abc');
+    expect(hookValues.isAuthenticated).toBe(true);
+    expect(hookValues.isLoading).toBe(false);
+  });
+
+  it('should handle exception from getCurrentUser gracefully and default to unauthenticated state', () => {
+    (GoogleOneTapSignIn.getCurrentUser as jest.Mock).mockImplementation(() => {
+      throw new Error('Native SDK error');
+    });
+
+    let hookValues!: ReturnType<typeof useAuth>;
+
+    act(() => {
+      create(
+        React.createElement(TestComponent, {
+          onRender: (val) => {
+            hookValues = val;
+          },
+        })
+      );
+    });
+
+    expect(hookValues.user).toBeNull();
+    expect(hookValues.idToken).toBeNull();
+    expect(hookValues.isAuthenticated).toBe(false);
+    expect(hookValues.isLoading).toBe(false);
   });
 
   it('should sign in successfully and update authenticated state', async () => {
+    (GoogleOneTapSignIn.getCurrentUser as jest.Mock).mockReturnValue(null);
     const mockSuccessResponse = {
       type: 'success',
       data: {
@@ -93,6 +161,7 @@ describe('useAuth hook', () => {
   });
 
   it('should sign out successfully and clear authenticated state', async () => {
+    (GoogleOneTapSignIn.getCurrentUser as jest.Mock).mockReturnValue(null);
     (GoogleOneTapSignIn.signOut as jest.Mock).mockResolvedValue(undefined);
 
     let hookValues!: ReturnType<typeof useAuth>;
@@ -119,6 +188,7 @@ describe('useAuth hook', () => {
   });
 
   it('should use EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID when set', () => {
+    (GoogleOneTapSignIn.getCurrentUser as jest.Mock).mockReturnValue(null);
     const originalEnv = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = 'test-web-client-id';
 
@@ -140,3 +210,4 @@ describe('useAuth hook', () => {
     }
   });
 });
+

@@ -16,7 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { syncScanToGoogleDrive } from '@/utils/gdrive';
 
 export default function HomeScreen() {
-  const { isAuthenticated, signIn, user } = useAuth();
+  const { isAuthenticated, isLoading, signIn, user } = useAuth();
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -60,6 +60,19 @@ export default function HomeScreen() {
       setLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.gateContainer} testID="auth-loading-indicator">
+        <SafeAreaView style={styles.gateSafeArea}>
+          <View style={styles.gateHero}>
+            <AnimatedIcon />
+            <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: Spacing.four }} />
+          </View>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

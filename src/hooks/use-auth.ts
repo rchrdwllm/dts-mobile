@@ -15,14 +15,55 @@ export function useAuth() {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     // Configure native Google One Tap Sign-In on mount
     const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'autoDetect';
     GoogleOneTapSignIn.configure({
       webClientId: clientId,
       scopes: ['https://www.googleapis.com/auth/drive.file'],
     });
+
+    const checkSession = async () => {
+      try {
+        const currentUser = GoogleOneTapSignIn.getCurrentUser();
+        if (isMounted) {
+          if (currentUser && currentUser.user) {
+            setUser({
+              name: currentUser.user.name ?? null,
+              photo: currentUser.user.photo ?? null,
+              email: currentUser.user.email ?? '',
+            });
+            setIdToken(currentUser.idToken ?? null);
+            setIsAuthenticated(true);
+          } else {
+            setUser(null);
+            setIdToken(null);
+            setIsAuthenticated(false);
+          }
+        }
+      } catch (error) {
+        console.warn('[useAuth] Error checking current user session:', error);
+        if (isMounted) {
+          setUser(null);
+          setIdToken(null);
+          setIsAuthenticated(false);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const signIn = async () => {
@@ -82,7 +123,9 @@ export function useAuth() {
     user,
     idToken,
     isAuthenticated,
+    isLoading,
     signIn,
     signOut,
   };
 }
+
