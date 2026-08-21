@@ -17,7 +17,7 @@ export async function findFileInFolder(
   folderId: string,
   fileName: string
 ): Promise<string | null> {
-  const url = `https://www.googleapis.com/drive/v3/files?pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,parents,createdTime)&orderBy=createdTime%20desc`;
+  const url = `https://www.googleapis.com/drive/v3/files?pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,parents,createdTime,size)&orderBy=createdTime%20asc`;
 
   console.log(`[GDrive Sync] Listing files in Google Drive to find '${fileName}'...`);
   const response = await fetch(url, {
@@ -35,10 +35,10 @@ export async function findFileInFolder(
   }
 
   const data = await response.json();
-  const files: Array<{ id: string; name: string; parents?: string[] }> = data.files || [];
+  const files: Array<{ id: string; name: string; parents?: string[]; size?: string; createdTime?: string }> = data.files || [];
 
   console.log(`[GDrive Sync] Drive returned ${files.length} total file(s):`,
-    files.map(f => ({ id: f.id, name: f.name, parents: f.parents }))
+    files.map(f => ({ id: f.id, name: f.name, parents: f.parents, size: f.size, createdTime: f.createdTime }))
   );
 
   const matchingFiles = files.filter(f => f.name === fileName);
@@ -48,16 +48,29 @@ export async function findFileInFolder(
     return null;
   }
 
-  // Find file in the specific target folder first
+  // Sort matching files: largest file first (main dataset), then oldest creation time first
+  matchingFiles.sort((a, b) => {
+    const sizeA = parseInt(a.size || '0', 10);
+    const sizeB = parseInt(b.size || '0', 10);
+    if (sizeA !== sizeB) {
+      return sizeB - sizeA;
+    }
+    const timeA = new Date(a.createdTime || 0).getTime();
+    const timeB = new Date(b.createdTime || 0).getTime();
+    return timeA - timeB;
+  });
+
+  // Find file in target folder first
   const matchInFolder = matchingFiles.find(f => f.parents && f.parents.includes(folderId));
   if (matchInFolder) {
-    console.log(`[GDrive Sync] Found matching file in target folder '${folderId}', ID: ${matchInFolder.id}`);
+    console.log(`[GDrive Sync] Selected file in target folder '${folderId}': ID=${matchInFolder.id}, size=${matchInFolder.size ?? '0'} bytes`);
     return matchInFolder.id;
   }
 
-  // Fallback to the first matching file
-  console.log(`[GDrive Sync] Using most recent file ID '${matchingFiles[0].id}' (parents: ${JSON.stringify(matchingFiles[0].parents)})`);
-  return matchingFiles[0].id;
+  // Fallback to top sorted file
+  const selected = matchingFiles[0];
+  console.log(`[GDrive Sync] Selected top matching file: ID=${selected.id}, size=${selected.size ?? '0'} bytes, parents=${JSON.stringify(selected.parents)}`);
+  return selected.id;
 }
 
 /**
