@@ -6,63 +6,7 @@ export interface UploadResult {
   fileName: string;
 }
 
-/**
- * Searches for a folder with the given name on Google Drive.
- * Returns the folder ID if found, or null otherwise.
- */
-export async function findFolder(accessToken: string, folderName: string): Promise<string | null> {
-  const query = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
-    query
-  )}&spaces=drive&fields=files(id,name)`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Failed to search folder: ${response.status} ${response.statusText} - ${errText}`);
-  }
-
-  const data = await response.json();
-  if (data.files && data.files.length > 0) {
-    return data.files[0].id;
-  }
-  return null;
-}
-
-/**
- * Creates a folder with the given name on Google Drive.
- * Returns the new folder's ID.
- */
-export async function createFolder(accessToken: string, folderName: string): Promise<string> {
-  const url = 'https://www.googleapis.com/drive/v3/files';
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json; charset=UTF-8',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({
-      name: folderName,
-      mimeType: 'application/vnd.google-apps.folder',
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Failed to create folder: ${response.status} ${response.statusText} - ${errText}`);
-  }
-
-  const data = await response.json();
-  return data.id;
-}
+export const TARGET_FOLDER_ID = process.env.EXPO_PUBLIC_GDRIVE_TARGET_FOLDER_ID || '1A2B3C4D5E6F7G8H9I0J';
 
 /**
  * Uploads an XML payload to Google Drive using multipart upload protocol.
@@ -117,25 +61,19 @@ export async function uploadXmlFile(
 
 /**
  * High-level function to sync scan record to Google Drive.
- * Retrieves tokens, checks/creates folder, serializes XML, uploads, and handles token expiration.
+ * Retrieves tokens, serializes XML, uploads directly to target folder as Battery_DATA.xml, and handles token expiration.
  */
 export async function syncScanToGoogleDrive(
   inputNumber: string,
   qrCodeData: string,
   timestamp?: string
 ): Promise<UploadResult> {
-  const folderName = 'QRScannerGDrive';
   let tokens = await GoogleOneTapSignIn.getTokens();
   let accessToken = tokens.accessToken;
 
   const performSync = async (token: string): Promise<UploadResult> => {
-    let folderId = await findFolder(token, folderName);
-    if (!folderId) {
-      folderId = await createFolder(token, folderName);
-    }
-
     const currentTimestamp = timestamp || new Date().toISOString();
-    const fileName = `Scan_${inputNumber}_${currentTimestamp}.xml`;
+    const fileName = 'Battery_DATA.xml';
     
     const xmlContent = serializeScanRecord({
       inputNumber,
@@ -143,7 +81,7 @@ export async function syncScanToGoogleDrive(
       timestamp: currentTimestamp,
     });
 
-    return uploadXmlFile(token, folderId, fileName, xmlContent);
+    return uploadXmlFile(token, TARGET_FOLDER_ID, fileName, xmlContent);
   };
 
   try {
@@ -166,3 +104,4 @@ export async function syncScanToGoogleDrive(
     throw error;
   }
 }
+

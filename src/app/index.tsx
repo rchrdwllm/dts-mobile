@@ -16,7 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { syncScanToGoogleDrive } from '@/utils/gdrive';
 
 export default function HomeScreen() {
-  const { isAuthenticated, isLoading, signIn, user } = useAuth();
+  const { isAuthenticated, isLoading, signIn, signOut, user } = useAuth();
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -55,6 +55,21 @@ export default function HomeScreen() {
       Alert.alert(
         'Sign-in Failed',
         e instanceof Error ? e.message : 'An unknown error occurred during sign-in.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setLoading(true);
+    try {
+      await signOut();
+    } catch (e) {
+      console.error('Sign-out failed on Home screen:', e);
+      Alert.alert(
+        'Sign-out Failed',
+        e instanceof Error ? e.message : 'An unknown error occurred during sign-out.'
       );
     } finally {
       setLoading(false);
@@ -168,7 +183,7 @@ export default function HomeScreen() {
             />
             <HintRow
               title="Folder Destination"
-              hint={<ThemedText type="code">/QRScannerGDrive</ThemedText>}
+              hint={<ThemedText type="code">Shared Target Folder</ThemedText>}
             />
             <HintRow
               title="Reference Batch"
@@ -178,6 +193,24 @@ export default function HomeScreen() {
                 </ThemedText>
               }
             />
+            <Pressable
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.signOutButton,
+                pressed && styles.buttonPressed,
+                loading && styles.buttonDisabled,
+              ]}
+              onPress={handleSignOut}
+              accessibilityLabel="Sign out of Google Account"
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FF3B30" />
+              ) : (
+                <ThemedText type="smallBold" style={styles.signOutButtonText}>
+                  Sign Out of Google
+                </ThemedText>
+              )}
+            </Pressable>
           </ThemedView>
 
           {Platform.OS === 'web' && <WebBadge />}
@@ -316,6 +349,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.one,
   },
   overlayText: {
+    fontWeight: '600',
+  },
+  signOutButton: {
+    borderColor: '#FF3B30',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: Spacing.two - 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.two,
+  },
+  signOutButtonText: {
+    color: '#FF3B30',
     fontWeight: '600',
   },
 });
