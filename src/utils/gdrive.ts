@@ -1,5 +1,5 @@
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin';
-import { serializeScanRecord, appendScanToXml } from './xml';
+import { appendScanToXml, serializeScanRecord } from './xml';
 
 export interface UploadResult {
   fileId: string;
@@ -36,8 +36,8 @@ export async function findFileInFolder(
 
   const data = await response.json();
   const files: Array<{ id: string; name: string; parents?: string[] }> = data.files || [];
-  
-  console.log(`[GDrive Sync] Drive returned ${files.length} total file(s):`, 
+
+  console.log(`[GDrive Sync] Drive returned ${files.length} total file(s):`,
     files.map(f => ({ id: f.id, name: f.name, parents: f.parents }))
   );
 
@@ -99,6 +99,7 @@ export async function updateXmlFile(
   const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`;
 
   console.log(`[GDrive Sync] PATCH updating file ID '${fileId}' (${xmlContent.length} bytes)...`);
+  console.log('[GDrive Sync] End snippet of payload to upload:\n', xmlContent.slice(-300));
   const response = await fetch(url, {
     method: 'PATCH',
     headers: {
@@ -191,7 +192,7 @@ export async function syncScanToGoogleDrive(
 
   const performSync = async (token: string): Promise<UploadResult> => {
     const fileName = 'Battery_DATA.xml';
-    
+
     const existingFileId = await findFileInFolder(token, TARGET_FOLDER_ID, fileName);
 
     if (existingFileId) {
@@ -217,9 +218,9 @@ export async function syncScanToGoogleDrive(
   try {
     return await performSync(accessToken);
   } catch (error) {
-    const isUnauthorized = error instanceof Error && 
+    const isUnauthorized = error instanceof Error &&
       (error.message.includes('401') || error.message.toLowerCase().includes('unauthorized'));
-    
+
     if (isUnauthorized) {
       console.log('[GDrive Sync] Unauthorized error, clearing cached access token and retrying...');
       try {
@@ -234,5 +235,3 @@ export async function syncScanToGoogleDrive(
     throw error;
   }
 }
-
-

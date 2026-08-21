@@ -116,18 +116,27 @@ export const appendScanToXml = (
   scanInput: ScanRecordInput
 ): string => {
   if (!existingXml || typeof existingXml !== 'string') {
+    console.log('[XML Util] Existing XML is empty/null. Serializing fresh scan record.');
     return serializeScanRecord(scanInput);
   }
 
-  const closeTagIndex = existingXml.indexOf('</QRCodeScans>');
-  if (closeTagIndex === -1) {
+  // Find the LAST occurrence of </QRCodeScans> (case-insensitive)
+  const matches = [...existingXml.matchAll(/<\/QRCodeScans\s*>/gi)];
+  if (matches.length === 0) {
+    console.warn('[XML Util] Closing tag </QRCodeScans> not found in existing XML. Serializing fresh document.');
     return serializeScanRecord(scanInput);
   }
+
+  const lastMatch = matches[matches.length - 1];
+  const closeTagIndex = lastMatch.index!;
 
   const scanNode = formatScanNode(scanInput);
   const beforeCloseTag = existingXml.slice(0, closeTagIndex).trimEnd();
 
-  return `${beforeCloseTag}\n${scanNode}\n</QRCodeScans>`;
+  const resultXml = `${beforeCloseTag}\n${scanNode}\n</QRCodeScans>`;
+  console.log(`[XML Util] Appended scan entry before closing tag at index ${closeTagIndex}. Initial length: ${existingXml.length}, New length: ${resultXml.length}`);
+  return resultXml;
 };
+
 
 
