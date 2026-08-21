@@ -118,25 +118,44 @@ export async function downloadFileContent(
 }
 
 /**
- * Updates an existing file's media content in Google Drive using PATCH request.
+ * Updates an existing file's media content in Google Drive using multipart PATCH request.
+ * Updates both file media and modifiedTime metadata so Google Drive Web UI immediately refreshes.
  */
 export async function updateXmlFile(
   accessToken: string,
   fileId: string,
   xmlContent: string
 ): Promise<UploadResult> {
-  const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`;
+  const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&supportsAllDrives=true`;
+  const boundary = `-------314159265358979323846_${Date.now()}`;
 
-  console.log(`[GDrive Sync] PATCH updating file ID '${fileId}' (${xmlContent.length} bytes)...`);
+  console.log(`[GDrive Sync] Multipart PATCH updating file ID '${fileId}' (${xmlContent.length} bytes)...`);
   console.log('[GDrive Sync] End snippet of payload to upload:\n', xmlContent.slice(-300));
+
+  const body = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify({
+      name: 'Battery_DATA.xml',
+      mimeType: 'application/xml',
+      modifiedTime: new Date().toISOString(),
+    }),
+    `--${boundary}`,
+    'Content-Type: application/xml',
+    '',
+    xmlContent,
+    `--${boundary}--`,
+  ].join('\r\n');
+
   const response = await fetch(url, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/xml',
+      'Content-Type': `multipart/related; boundary=${boundary}`,
       'Accept': 'application/json',
     },
-    body: xmlContent,
+    body,
   });
 
   if (!response.ok) {
@@ -146,7 +165,7 @@ export async function updateXmlFile(
   }
 
   const data = await response.json();
-  console.log(`[GDrive Sync] File PATCH update successful! File ID: ${data.id || fileId}`);
+  console.log(`[GDrive Sync] File multipart PATCH update successful! File ID: ${data.id || fileId}`);
   return {
     fileId: data.id || fileId,
     fileName: data.name || 'Battery_DATA.xml',

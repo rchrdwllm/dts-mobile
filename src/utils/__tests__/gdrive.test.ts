@@ -83,7 +83,7 @@ describe('Google Drive Sync API Utilities', () => {
   });
 
   describe('updateXmlFile', () => {
-    it('should make PATCH request to update file content', async () => {
+    it('should make multipart PATCH request to update file content and modifiedTime', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ id: 'existing-file-123', name: 'Battery_DATA.xml' }),
@@ -94,14 +94,14 @@ describe('Google Drive Sync API Utilities', () => {
 
       expect(result).toEqual({ fileId: 'existing-file-123', fileName: 'Battery_DATA.xml' });
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://www.googleapis.com/upload/drive/v3/files/existing-file-123?uploadType=media&supportsAllDrives=true',
+        'https://www.googleapis.com/upload/drive/v3/files/existing-file-123?uploadType=multipart&supportsAllDrives=true',
         expect.objectContaining({
           method: 'PATCH',
           headers: expect.objectContaining({
             Authorization: `Bearer ${mockAccessToken}`,
-            'Content-Type': 'application/xml',
+            'Content-Type': expect.stringContaining('multipart/related; boundary='),
           }),
-          body: updatedXml,
+          body: expect.stringContaining(updatedXml),
         })
       );
     });
