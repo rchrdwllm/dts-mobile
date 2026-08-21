@@ -36,8 +36,8 @@ export async function findFileInFolder(
 
   const data = await response.json();
   const files: Array<{ id: string; name: string; parents?: string[]; size?: string; createdTime?: string }> = data.files || [];
-
-  console.log(`[GDrive Sync] Drive returned ${files.length} total file(s):`,
+  
+  console.log(`[GDrive Sync] Drive returned ${files.length} total file(s):`, 
     files.map(f => ({ id: f.id, name: f.name, parents: f.parents, size: f.size, createdTime: f.createdTime }))
   );
 
@@ -48,8 +48,12 @@ export async function findFileInFolder(
     return null;
   }
 
-  // Sort matching files: largest file first (main dataset), then oldest creation time first
-  matchingFiles.sort((a, b) => {
+  // Filter matching files in target folder first if available
+  const matchingInFolder = matchingFiles.filter(f => f.parents && f.parents.includes(folderId));
+  const candidateList = matchingInFolder.length > 0 ? matchingInFolder : matchingFiles;
+
+  // Sort candidate files: largest file size first (main dataset), then oldest creation time first
+  candidateList.sort((a, b) => {
     const sizeA = parseInt(a.size || '0', 10);
     const sizeB = parseInt(b.size || '0', 10);
     if (sizeA !== sizeB) {
@@ -60,17 +64,29 @@ export async function findFileInFolder(
     return timeA - timeB;
   });
 
-  // Find file in target folder first
-  const matchInFolder = matchingFiles.find(f => f.parents && f.parents.includes(folderId));
-  if (matchInFolder) {
-    console.log(`[GDrive Sync] Selected file in target folder '${folderId}': ID=${matchInFolder.id}, size=${matchInFolder.size ?? '0'} bytes`);
-    return matchInFolder.id;
+  const keeperFile = candidateList[0];
+  console.log(`[GDrive Sync] Selected keeper file: ID=${keeperFile.id}, size=${keeperFile.size ?? '0'} bytes`);
+
+  // Clean up smaller duplicate files if any exist
+  if (candidateList.length > 1) {
+    const duplicatesToDelete = candidateList.slice(1);
+    console.log(`[GDrive Sync] Cleaning up ${duplicatesToDelete.length} duplicate file(s)...`);
+    for (const dup of duplicatesToDelete) {
+      try {
+        console.log(`[GDrive Sync] Deleting duplicate file ID '${dup.id}' (size: ${dup.size ?? '0'} bytes)...`);
+        await fetch(`https://www.googleapis.com/drive/v3/files/${dup.id}?supportsAllDrives=true`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+      } catch (delErr) {
+        console.warn(`[GDrive Sync] Failed to delete duplicate file ${dup.id}:`, delErr);
+      }
+    }
   }
 
-  // Fallback to top sorted file
-  const selected = matchingFiles[0];
-  console.log(`[GDrive Sync] Selected top matching file: ID=${selected.id}, size=${selected.size ?? '0'} bytes, parents=${JSON.stringify(selected.parents)}`);
-  return selected.id;
+  return keeperFile.id;
 }
 
 /**
