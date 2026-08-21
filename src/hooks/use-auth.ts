@@ -24,7 +24,10 @@ export function useAuth() {
     const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'autoDetect';
     GoogleOneTapSignIn.configure({
       webClientId: clientId,
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
+      scopes: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/drive.file',
+      ],
     });
 
     const checkSession = async () => {

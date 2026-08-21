@@ -17,10 +17,10 @@ export async function findFileInFolder(
   folderId: string,
   fileName: string
 ): Promise<string | null> {
-  const query = `name='${fileName}' and '${folderId}' in parents and trashed=false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,createdTime)&orderBy=createdTime%20desc`;
+  const query = `name = '${fileName}' and trashed = false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,parents,createdTime)&orderBy=createdTime%20desc`;
 
-  console.log(`[GDrive Sync] Searching for existing file '${fileName}' in folder '${folderId}'...`);
+  console.log(`[GDrive Sync] Searching for file '${fileName}' in Google Drive...`);
   const response = await fetch(url, {
     method: 'GET',
     headers: {
@@ -36,12 +36,23 @@ export async function findFileInFolder(
   }
 
   const data = await response.json();
-  console.log(`[GDrive Sync] Found ${data.files?.length ?? 0} matching file(s).`);
-  if (data.files && data.files.length > 0) {
-    console.log(`[GDrive Sync] Using existing file ID: ${data.files[0].id}`);
-    return data.files[0].id;
+  const files: Array<{ id: string; name: string; parents?: string[] }> = data.files || [];
+  console.log(`[GDrive Sync] Search found ${files.length} file(s) named '${fileName}'.`);
+
+  if (files.length === 0) {
+    return null;
   }
-  return null;
+
+  // Find file in the specific target folder first
+  const matchInFolder = files.find(f => f.parents && f.parents.includes(folderId));
+  if (matchInFolder) {
+    console.log(`[GDrive Sync] Found matching file in target folder '${folderId}', ID: ${matchInFolder.id}`);
+    return matchInFolder.id;
+  }
+
+  // Fallback to the first matching file
+  console.log(`[GDrive Sync] Using most recent file ID '${files[0].id}' (parents: ${JSON.stringify(files[0].parents)})`);
+  return files[0].id;
 }
 
 /**
