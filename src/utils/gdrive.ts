@@ -18,8 +18,9 @@ export async function findFileInFolder(
   fileName: string
 ): Promise<string | null> {
   const query = `name='${fileName}' and '${folderId}' in parents and trashed=false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,createdTime)&orderBy=createdTime%20desc`;
 
+  console.log(`[GDrive Sync] Searching for existing file '${fileName}' in folder '${folderId}'...`);
   const response = await fetch(url, {
     method: 'GET',
     headers: {
@@ -30,11 +31,14 @@ export async function findFileInFolder(
 
   if (!response.ok) {
     const errText = await response.text();
+    console.error(`[GDrive Sync] Search failed: ${response.status} ${response.statusText} - ${errText}`);
     throw new Error(`Failed to search folder: ${response.status} ${response.statusText} - ${errText}`);
   }
 
   const data = await response.json();
+  console.log(`[GDrive Sync] Found ${data.files?.length ?? 0} matching file(s).`);
   if (data.files && data.files.length > 0) {
+    console.log(`[GDrive Sync] Using existing file ID: ${data.files[0].id}`);
     return data.files[0].id;
   }
   return null;
@@ -47,8 +51,9 @@ export async function downloadFileContent(
   accessToken: string,
   fileId: string
 ): Promise<string> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
 
+  console.log(`[GDrive Sync] Downloading content for file ID '${fileId}'...`);
   const response = await fetch(url, {
     method: 'GET',
     headers: {
@@ -58,10 +63,13 @@ export async function downloadFileContent(
 
   if (!response.ok) {
     const errText = await response.text();
+    console.error(`[GDrive Sync] Download failed: ${response.status} ${response.statusText} - ${errText}`);
     throw new Error(`Failed to download file content: ${response.status} ${response.statusText} - ${errText}`);
   }
 
-  return await response.text();
+  const text = await response.text();
+  console.log(`[GDrive Sync] Downloaded XML content (${text.length} bytes).`);
+  return text;
 }
 
 /**
@@ -72,8 +80,9 @@ export async function updateXmlFile(
   fileId: string,
   xmlContent: string
 ): Promise<UploadResult> {
-  const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
+  const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`;
 
+  console.log(`[GDrive Sync] PATCH updating file ID '${fileId}' (${xmlContent.length} bytes)...`);
   const response = await fetch(url, {
     method: 'PATCH',
     headers: {
@@ -86,10 +95,12 @@ export async function updateXmlFile(
 
   if (!response.ok) {
     const errText = await response.text();
+    console.error(`[GDrive Sync] Update failed: ${response.status} ${response.statusText} - ${errText}`);
     throw new Error(`Failed to update XML file: ${response.status} ${response.statusText} - ${errText}`);
   }
 
   const data = await response.json();
+  console.log(`[GDrive Sync] File PATCH update successful! File ID: ${data.id || fileId}`);
   return {
     fileId: data.id || fileId,
     fileName: data.name || 'Battery_DATA.xml',
@@ -106,9 +117,10 @@ export async function uploadXmlFile(
   fileName: string,
   xmlContent: string
 ): Promise<UploadResult> {
-  const url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+  const url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true';
   const boundary = `-------314159265358979323846_${Date.now()}`;
 
+  console.log(`[GDrive Sync] Creating new file '${fileName}' in folder '${folderId}' via multipart POST...`);
   const body = [
     `--${boundary}`,
     'Content-Type: application/json; charset=UTF-8',
@@ -137,10 +149,12 @@ export async function uploadXmlFile(
 
   if (!response.ok) {
     const errText = await response.text();
+    console.error(`[GDrive Sync] Multipart upload failed: ${response.status} ${response.statusText} - ${errText}`);
     throw new Error(`Failed to upload XML file: ${response.status} ${response.statusText} - ${errText}`);
   }
 
   const data = await response.json();
+  console.log(`[GDrive Sync] New file created successfully! File ID: ${data.id}`);
   return {
     fileId: data.id,
     fileName: data.name,
@@ -165,6 +179,7 @@ export async function syncScanToGoogleDrive(
     const existingFileId = await findFileInFolder(token, TARGET_FOLDER_ID, fileName);
 
     if (existingFileId) {
+      console.log(`[GDrive Sync] Found existing file '${fileName}' (ID: ${existingFileId}). Appending scan data...`);
       const existingXml = await downloadFileContent(token, existingFileId);
       const updatedXml = appendScanToXml(existingXml, {
         batteryCode,
@@ -173,6 +188,7 @@ export async function syncScanToGoogleDrive(
       });
       return await updateXmlFile(token, existingFileId, updatedXml);
     } else {
+      console.log(`[GDrive Sync] Existing file '${fileName}' not found. Creating new file...`);
       const xmlContent = serializeScanRecord({
         batteryCode,
         droneSerial,

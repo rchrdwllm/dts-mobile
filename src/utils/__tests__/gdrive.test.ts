@@ -72,7 +72,7 @@ describe('Google Drive Sync API Utilities', () => {
 
       expect(content).toBe(existingXml);
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://www.googleapis.com/drive/v3/files/existing-file-123?alt=media',
+        'https://www.googleapis.com/drive/v3/files/existing-file-123?alt=media&supportsAllDrives=true',
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: `Bearer ${mockAccessToken}`,
@@ -94,7 +94,7 @@ describe('Google Drive Sync API Utilities', () => {
 
       expect(result).toEqual({ fileId: 'existing-file-123', fileName: 'Battery_DATA.xml' });
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://www.googleapis.com/upload/drive/v3/files/existing-file-123?uploadType=media',
+        'https://www.googleapis.com/upload/drive/v3/files/existing-file-123?uploadType=media&supportsAllDrives=true',
         expect.objectContaining({
           method: 'PATCH',
           headers: expect.objectContaining({
@@ -121,7 +121,7 @@ describe('Google Drive Sync API Utilities', () => {
       const result = await uploadXmlFile(mockAccessToken, folderId, fileName, xmlContent);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
