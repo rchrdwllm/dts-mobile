@@ -39,7 +39,7 @@ describe('Google Drive Sync API Utilities', () => {
 
       expect(fileId).toBe('existing-file-123');
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(`https://www.googleapis.com/drive/v3/files?q=name%20%3D%20'Battery_DATA.xml'%20and%20trashed%20%3D%20false`),
+        expect.stringContaining(`https://www.googleapis.com/drive/v3/files?pageSize=100`),
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: `Bearer ${mockAccessToken}`,
