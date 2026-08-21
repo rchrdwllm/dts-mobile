@@ -20,3 +20,7 @@ The component responsible for sending XML payloads to Google Drive. This uses `r
 ### Scan Queue / Sync State
 Not implemented. The app operates synchronously; if an upload fails, the user is notified immediately, and the scan state is reset or prompted for retry.
 
+### Auth Persistence & Session Hydration
+The mechanism where the app checks `GoogleOneTapSignIn.getCurrentUser()` on app launch (cold start) to automatically restore the user's Google authentication state without prompting for credentials, keeping the user signed in until explicit sign-out.
+
+

@@ -89,14 +89,15 @@ describe('HomeScreen', () => {
     expect(buttonTexts.length).toBeGreaterThan(0);
   });
 
-  it('renders main application dashboard when authenticated and not loading', () => {
+  it('renders main application dashboard with Sign Out button when authenticated', async () => {
+    const mockSignOut = jest.fn().mockResolvedValue(undefined);
     mockUseAuth.mockReturnValue({
       user: { name: 'John Doe', photo: 'https://example.com/photo.jpg', email: 'john@example.com' },
       idToken: 'mock-token',
       isAuthenticated: true,
       isLoading: false,
       signIn: jest.fn(),
-      signOut: jest.fn(),
+      signOut: mockSignOut,
     });
 
     let tree!: ReturnType<typeof create>;
@@ -107,5 +108,14 @@ describe('HomeScreen', () => {
     expect(() => tree.root.findByProps({ testID: 'auth-loading-indicator' })).toThrow();
     const saveButtons = tree.root.findAllByProps({ accessibilityLabel: 'Save scan to Google Drive' });
     expect(saveButtons.length).toBeGreaterThan(0);
+
+    const signOutButton = tree.root.findByProps({ accessibilityLabel: 'Sign out of Google Account' });
+    expect(signOutButton).toBeTruthy();
+
+    await act(async () => {
+      signOutButton.props.onPress();
+    });
+
+    expect(mockSignOut).toHaveBeenCalled();
   });
 });
