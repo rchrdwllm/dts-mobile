@@ -34,7 +34,7 @@ describe('Google Drive Sync API Utilities', () => {
 
       const folderId = 'folder-id-123';
       const fileName = 'Battery_DATA.xml';
-      const xmlContent = '<ScanRecord><Content></Content></ScanRecord>';
+      const xmlContent = '<?xml version="1.0" encoding="utf-8"?><QRCodeScans><Scan></Scan></QRCodeScans>';
 
       const result = await uploadXmlFile(mockAccessToken, folderId, fileName, xmlContent);
 

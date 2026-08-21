@@ -19,8 +19,8 @@ describe('ScanPreviewCard', () => {
       textContents.some(
         (child) =>
           typeof child === 'string' &&
-          child.includes('<InputNumber>REF123</InputNumber>') &&
-          child.includes('<QRCodeData>SAMPLE-QR-987654321</QRCodeData>')
+          child.includes('<BatteryCode>REF123</BatteryCode>') &&
+          child.includes('<DroneSerial>SAMPLE-QR-987654321</DroneSerial>')
       )
     ).toBe(true);
   });
@@ -44,8 +44,8 @@ describe('ScanPreviewCard', () => {
       textContents.some(
         (child) =>
           typeof child === 'string' &&
-          child.includes('<InputNumber>REF99</InputNumber>') &&
-          child.includes('<QRCodeData>CUSTOM-DATA</QRCodeData>')
+          child.includes('<BatteryCode>REF99</BatteryCode>') &&
+          child.includes('<DroneSerial>CUSTOM-DATA</DroneSerial>')
       )
     ).toBe(true);
   });
@@ -63,7 +63,7 @@ describe('ScanPreviewCard', () => {
       textContents.some(
         (child) =>
           typeof child === 'string' &&
-          child.includes('<InputNumber>(None)</InputNumber>')
+          child.includes('<BatteryCode>(None)</BatteryCode>')
       )
     ).toBe(true);
   });

@@ -9,8 +9,14 @@ import { useTheme } from '@/hooks/use-theme';
 import { serializeScanRecord } from '@/utils/xml';
 
 export type ScanPreviewCardProps = {
-  inputNumber: string;
+  batteryCode?: string;
+  droneSerial?: string;
+  date?: string;
+  /** Legacy alias for batteryCode */
+  inputNumber?: string;
+  /** Legacy alias for droneSerial */
   qrCodeData?: string;
+  /** Legacy alias for date */
   timestamp?: string;
   title?: string;
 };
@@ -18,17 +24,23 @@ export type ScanPreviewCardProps = {
 const DEFAULT_MOCK_QR = 'SAMPLE-QR-987654321';
 
 export function ScanPreviewCard({
+  batteryCode,
+  droneSerial,
+  date,
   inputNumber,
-  qrCodeData = DEFAULT_MOCK_QR,
+  qrCodeData,
   timestamp,
   title = 'XML Scan Preview',
 }: ScanPreviewCardProps) {
   const theme = useTheme();
 
+  const bCode = batteryCode ?? inputNumber ?? '';
+  const dSerial = droneSerial ?? qrCodeData ?? DEFAULT_MOCK_QR;
+
   const xmlContent = serializeScanRecord({
-    inputNumber: inputNumber || '(None)',
-    qrCodeData,
-    timestamp,
+    batteryCode: bCode || '(None)',
+    droneSerial: dSerial,
+    date: date ?? timestamp,
   });
 
   return (

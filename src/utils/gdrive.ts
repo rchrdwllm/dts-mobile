@@ -64,21 +64,20 @@ export async function uploadXmlFile(
  * Retrieves tokens, serializes XML, uploads directly to target folder as Battery_DATA.xml, and handles token expiration.
  */
 export async function syncScanToGoogleDrive(
-  inputNumber: string,
-  qrCodeData: string,
-  timestamp?: string
+  batteryCode: string,
+  droneSerial: string,
+  date?: string
 ): Promise<UploadResult> {
   let tokens = await GoogleOneTapSignIn.getTokens();
   let accessToken = tokens.accessToken;
 
   const performSync = async (token: string): Promise<UploadResult> => {
-    const currentTimestamp = timestamp || new Date().toISOString();
     const fileName = 'Battery_DATA.xml';
     
     const xmlContent = serializeScanRecord({
-      inputNumber,
-      qrCodeData,
-      timestamp: currentTimestamp,
+      batteryCode,
+      droneSerial,
+      date,
     });
 
     return uploadXmlFile(token, TARGET_FOLDER_ID, fileName, xmlContent);

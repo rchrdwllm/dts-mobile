@@ -15,36 +15,64 @@ describe('escapeXml', () => {
 });
 
 describe('serializeScanRecord', () => {
-  it('should format XML structure correctly with given timestamp', () => {
-    const timestamp = '2026-08-20T12:00:00.000Z';
+  it('should format XML matching Battery_DATA.xml structure with given date', () => {
     const result = serializeScanRecord({
-      inputNumber: 'REF123',
-      qrCodeData: 'https://example.com/qr/999',
-      timestamp,
+      batteryCode: 'GE0588927',
+      droneSerial: 'R12022019',
+      date: '2025-08-08',
     });
 
-    const expected = `<ScanRecord>\n  <InputNumber>REF123</InputNumber>\n  <QRCodeData>https://example.com/qr/999</QRCodeData>\n  <Timestamp>2026-08-20T12:00:00.000Z</Timestamp>\n</ScanRecord>`;
+    const expected = `<?xml version="1.0" encoding="utf-8"?>
+<QRCodeScans>
+  <Scan>
+    <BatteryCode>GE0588927</BatteryCode>
+    <DroneSerial>R12022019</DroneSerial>
+    <Date>2025-08-08</Date>
+    <Replacement></Replacement>
+    <FOM></FOM>
+    <FOMdate></FOMdate>
+    <FOM2></FOM2>
+    <FOM2date></FOM2date>
+    <FOM3></FOM3>
+    <FOM3date></FOM3date>
+  </Scan>
+</QRCodeScans>`;
     expect(result).toBe(expected);
   });
 
-  it('should escape special characters in inputNumber and qrCodeData', () => {
-    const timestamp = '2026-08-20T12:00:00.000Z';
+  it('should support legacy parameter aliases (inputNumber, qrCodeData, timestamp)', () => {
     const result = serializeScanRecord({
-      inputNumber: 'REF<123>&',
-      qrCodeData: 'https://example.com?a=1&b="test\'',
-      timestamp,
+      inputNumber: 'GE0588927',
+      qrCodeData: 'R12022019',
+      timestamp: '2025-08-08T12:00:00.000Z',
     });
 
-    expect(result).toContain('<InputNumber>REF&lt;123&gt;&amp;</InputNumber>');
-    expect(result).toContain('<QRCodeData>https://example.com?a=1&amp;b=&quot;test&apos;</QRCodeData>');
+    expect(result).toContain('<BatteryCode>GE0588927</BatteryCode>');
+    expect(result).toContain('<DroneSerial>R12022019</DroneSerial>');
+    expect(result).toContain('<Date>2025-08-08</Date>');
   });
 
-  it('should generate an ISO timestamp if none is provided', () => {
+  it('should escape special characters in batteryCode and droneSerial', () => {
     const result = serializeScanRecord({
-      inputNumber: '123',
-      qrCodeData: 'TEST',
+      batteryCode: 'GE<588>&',
+      droneSerial: 'R120"22\'19',
+      date: '2025-08-08',
     });
 
-    expect(result).toMatch(/<Timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z<\/Timestamp>/);
+    expect(result).toContain('<BatteryCode>GE&lt;588&gt;&amp;</BatteryCode>');
+    expect(result).toContain('<DroneSerial>R120&quot;22&apos;19</DroneSerial>');
+  });
+
+  it('should format today\'s date as YYYY-MM-DD if no date is provided', () => {
+    const result = serializeScanRecord({
+      batteryCode: 'GE0588927',
+      droneSerial: 'R12022019',
+    });
+
+    const dateMatch = result.match(/<Date>(\d{4}-\d{2}-\d{2})<\/Date>/);
+    expect(dateMatch).not.toBeNull();
+    const todayStr = new Date().toISOString().split('T')[0];
+    expect(dateMatch![1]).toBe(todayStr);
   });
 });
+
