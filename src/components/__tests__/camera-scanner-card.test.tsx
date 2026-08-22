@@ -91,8 +91,136 @@ describe('CameraScannerCard', () => {
     const textContents = textNodes.map((node) => node.props.children);
 
     expect(textContents).toContain('Scan Locked');
-    expect(textContents).toContain('QR Code Captured');
+    expect(textContents).toContain('Battery Serial No. Captured');
     expect(textContents).toContain('SCANNED-QR-12345');
     expect(textContents).toContain('Rescan QR Code');
   });
+
+  it('truncates scanned QR code payload to 9 characters', () => {
+    mockUseCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
+    const mockOnScan = jest.fn();
+
+    let tree!: ReturnType<typeof create>;
+    act(() => {
+      tree = create(
+        <CameraScannerCard
+          scanned={false}
+          onScan={mockOnScan}
+          onRescan={jest.fn()}
+        />
+      );
+    });
+
+    const cameraView = tree.root.findByProps({ testID: 'mock-camera-view' });
+
+    act(() => {
+      cameraView.props.onBarcodeScanned({ data: '1234567890EXTRA' });
+    });
+
+    expect(mockOnScan).toHaveBeenCalledWith('123456789');
+  });
+
+  it('renders expand button and opens full-screen scanner modal when pressed', () => {
+    mockUseCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
+
+    let tree!: ReturnType<typeof create>;
+    act(() => {
+      tree = create(
+        <CameraScannerCard
+          scanned={false}
+          onScan={jest.fn()}
+          onRescan={jest.fn()}
+        />
+      );
+    });
+
+    const textNodes = tree.root.findAllByType(ThemedText);
+    const textContents = textNodes.map((node) => node.props.children);
+    expect(textContents).toContain('Expand');
+
+    const expandBtn = tree.root.findByProps({ testID: 'expand-camera-button' });
+    act(() => {
+      expandBtn.props.onPress();
+    });
+
+    const modal = tree.root.findByProps({ testID: 'full-screen-camera-modal' });
+    expect(modal.props.visible).toBe(true);
+  });
+
+  it('renders zoom preset pills and torch toggle inside full-screen camera modal', () => {
+    mockUseCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
+
+    let tree!: ReturnType<typeof create>;
+    act(() => {
+      tree = create(
+        <CameraScannerCard
+          scanned={false}
+          onScan={jest.fn()}
+          onRescan={jest.fn()}
+        />
+      );
+    });
+
+    // Open full screen modal
+    const expandBtn = tree.root.findByProps({ testID: 'expand-camera-button' });
+    act(() => {
+      expandBtn.props.onPress();
+    });
+
+    // Verify zoom preset buttons 1x, 2x, 3x, 5x exist
+    const zoomPill2x = tree.root.findByProps({ testID: 'zoom-preset-2x' });
+    expect(zoomPill2x).toBeTruthy();
+
+    // Click 2x zoom preset
+    act(() => {
+      zoomPill2x.props.onPress();
+    });
+
+    // Verify full-screen CameraView receives updated zoom prop (0.15 for 2x)
+    const cameraViews = tree.root.findAllByProps({ testID: 'mock-camera-view' });
+    const fullScreenCamera = cameraViews.find((v) => v.props.zoom !== undefined);
+    expect(fullScreenCamera?.props.zoom).toBe(0.15);
+
+    // Toggle torch flashlight button
+    const torchBtn = tree.root.findByProps({ testID: 'toggle-torch-button' });
+    act(() => {
+      torchBtn.props.onPress();
+    });
+
+    expect(fullScreenCamera?.props.enableTorch).toBe(true);
+  });
+
+  it('scans barcode in full-screen view, truncates to 9 chars, triggers onScan, and closes modal', () => {
+    mockUseCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
+    const mockOnScan = jest.fn();
+
+    let tree!: ReturnType<typeof create>;
+    act(() => {
+      tree = create(
+        <CameraScannerCard
+          scanned={false}
+          onScan={mockOnScan}
+          onRescan={jest.fn()}
+        />
+      );
+    });
+
+    // Open full screen modal
+    const expandBtn = tree.root.findByProps({ testID: 'expand-camera-button' });
+    act(() => {
+      expandBtn.props.onPress();
+    });
+
+    const cameraViews = tree.root.findAllByProps({ testID: 'mock-camera-view' });
+    const fullScreenCamera = cameraViews.find((v) => v.props.zoom !== undefined);
+
+    act(() => {
+      fullScreenCamera?.props.onBarcodeScanned({ data: 'FULLSCREEN1234' });
+    });
+
+    expect(mockOnScan).toHaveBeenCalledWith('FULLSCREE');
+    const modal = tree.root.findByProps({ testID: 'full-screen-camera-modal' });
+    expect(modal.props.visible).toBe(false);
+  });
 });
+
