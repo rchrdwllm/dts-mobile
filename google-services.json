@@ -18,6 +18,14 @@
           "client_type": 1,
           "android_info": {
             "package_name": "com.rchrdwllm.qrscannergdrive",
+            "certificate_hash": "d8344e273198a1f019c5c8553e77de48195301d0"
+          }
+        },
+        {
+          "client_id": "898951322477-m6a4mu1n5ohlsmr8f3k2lamhu5jfvj5e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rchrdwllm.qrscannergdrive",
             "certificate_hash": "7d412b53397338f41e2997ed098588d3b30cc2a1"
           }
         },

@@ -12,11 +12,12 @@ describe('ReferenceInputCard', () => {
 
     const input = tree.root.findByType(TextInput);
     expect(input).toBeTruthy();
-    expect(input.props.placeholder).toBe('Enter Reference Number...');
+    expect(input.props.placeholder).toBe('Enter Drone Serial No....');
     expect(input.props.keyboardType).toBe('default');
+    expect(input.props.maxLength).toBe(9);
   });
 
-  it('sanitizes text when onChangeText is called', () => {
+  it('sanitizes text and truncates to 9 characters when onChangeText is called', () => {
     const handleChangeText = jest.fn();
     let tree!: ReturnType<typeof create>;
     act(() => {
@@ -30,6 +31,12 @@ describe('ReferenceInputCard', () => {
     });
 
     expect(handleChangeText).toHaveBeenCalledWith('ABC123');
+
+    act(() => {
+      input.props.onChangeText('1234567890EXTRA');
+    });
+
+    expect(handleChangeText).toHaveBeenCalledWith('123456789');
   });
 
   it('supports custom placeholder and value props', () => {

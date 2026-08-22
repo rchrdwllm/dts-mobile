@@ -5,7 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimatedIcon } from '@/components/animated-icon';
 import { HintRow } from '@/components/hint-row';
 import { ReferenceInputCard } from '@/components/reference-input-card';
-import { ScanPreviewCard } from '@/components/scan-preview-card';
 import { CameraScannerCard } from '@/components/camera-scanner-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -20,21 +19,21 @@ export default function HomeScreen() {
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [referenceCode, setReferenceCode] = useState('');
-  const [scannedQrData, setScannedQrData] = useState('');
+  const [droneSerialInput, setDroneSerialInput] = useState('');
+  const [scannedBatteryQr, setScannedBatteryQr] = useState('');
 
   const handleSync = async () => {
-    if (!referenceCode || !scannedQrData) {
+    if (!droneSerialInput || !scannedBatteryQr) {
       return;
     }
     setSyncing(true);
     try {
-      await syncScanToGoogleDrive(referenceCode, scannedQrData);
+      await syncScanToGoogleDrive(scannedBatteryQr, droneSerialInput);
       Alert.alert(
         'Sync Successful',
         'Your scan record has been successfully uploaded to Google Drive.'
       );
-      setScannedQrData('');
+      setScannedBatteryQr('');
     } catch (e) {
       console.error('Sync to Google Drive failed:', e);
       Alert.alert(
@@ -134,27 +133,22 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <ReferenceInputCard
-            value={referenceCode}
-            onChangeText={setReferenceCode}
+            value={droneSerialInput}
+            onChangeText={(text) => setDroneSerialInput(text.slice(0, 9))}
           />
 
           <CameraScannerCard
-            scanned={Boolean(scannedQrData)}
-            scannedValue={scannedQrData}
-            onScan={(data) => setScannedQrData(data)}
-            onRescan={() => setScannedQrData('')}
-          />
-
-          <ScanPreviewCard
-            inputNumber={referenceCode}
-            qrCodeData={scannedQrData || undefined}
+            scanned={Boolean(scannedBatteryQr)}
+            scannedValue={scannedBatteryQr}
+            onScan={(data) => setScannedBatteryQr(data.slice(0, 9))}
+            onRescan={() => setScannedBatteryQr('')}
           />
 
           <Pressable
-            disabled={!referenceCode || !scannedQrData || syncing}
+            disabled={!droneSerialInput || !scannedBatteryQr || syncing}
             style={({ pressed }) => [
               styles.syncButton,
-              (!referenceCode || !scannedQrData) && styles.syncButtonDisabled,
+              (!droneSerialInput || !scannedBatteryQr) && styles.syncButtonDisabled,
               pressed && styles.buttonPressed,
             ]}
             onPress={handleSync}
@@ -186,10 +180,18 @@ export default function HomeScreen() {
               hint={<ThemedText type="code">Shared Target Folder</ThemedText>}
             />
             <HintRow
-              title="Reference Batch"
+              title="Drone Serial No."
               hint={
                 <ThemedText type="code">
-                  {referenceCode ? referenceCode : '(None set)'}
+                  {droneSerialInput ? droneSerialInput : '(None set)'}
+                </ThemedText>
+              }
+            />
+            <HintRow
+              title="Battery Serial No."
+              hint={
+                <ThemedText type="code">
+                  {scannedBatteryQr ? scannedBatteryQr : '(None scanned)'}
                 </ThemedText>
               }
             />

@@ -88,16 +88,18 @@ export function CameraScannerCard({
 
     return (
       <View style={styles.cameraViewport}>
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          zoom={zoom}
-          enableTorch={torch}
-          barcodeScannerSettings={{
-            barcodeTypes: ['qr'],
-          }}
-          onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-        />
+        {!fullScreenVisible && (
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            zoom={zoom}
+            enableTorch={torch}
+            barcodeScannerSettings={{
+              barcodeTypes: ['qr'],
+            }}
+            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+          />
+        )}
 
         {/* Viewfinder Alignment Overlay */}
         {!scanned && (
@@ -177,101 +179,104 @@ export function CameraScannerCard({
       {renderContent()}
 
       {/* Full-Screen Camera Modal */}
-      <Modal
-        testID="full-screen-camera-modal"
-        visible={fullScreenVisible}
-        animationType="slide"
-        onRequestClose={() => setFullScreenVisible(false)}
-      >
-        <View style={styles.fullScreenContainer}>
-          <CameraView
-            style={StyleSheet.absoluteFill}
-            facing="back"
-            zoom={zoom}
-            enableTorch={torch}
-            barcodeScannerSettings={{
-              barcodeTypes: ['qr'],
-            }}
-            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-          />
+      {fullScreenVisible && (
+        <Modal
+          testID="full-screen-camera-modal"
+          visible={fullScreenVisible}
+          animationType="slide"
+          onRequestClose={() => setFullScreenVisible(false)}
+        >
+          <View style={styles.fullScreenContainer}>
+            <CameraView
+              style={StyleSheet.absoluteFill}
+              facing="back"
+              zoom={zoom}
+              enableTorch={torch}
+              barcodeScannerSettings={{
+                barcodeTypes: ['qr'],
+              }}
+              onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+            />
 
-          {/* Full Screen Header */}
-          <View style={styles.fullScreenHeader}>
-            <ThemedText type="subtitle" style={styles.fullScreenTitle}>
-              QR Scanner
-            </ThemedText>
-            <View style={styles.fullScreenTopActions}>
-              <Pressable
-                testID="toggle-torch-button"
-                style={({ pressed }) => [
-                  styles.pillButton,
-                  torch && styles.pillButtonActive,
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={() => setTorch((t) => !t)}
-              >
-                <ThemedText type="smallBold" style={torch ? styles.pillTextActive : styles.pillText}>
-                  {torch ? 'Flash On' : 'Flash Off'}
-                </ThemedText>
-              </Pressable>
-              <Pressable
-                testID="close-full-screen-button"
-                style={({ pressed }) => [
-                  styles.pillButton,
-                  styles.closePill,
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={() => setFullScreenVisible(false)}
-              >
-                <ThemedText type="smallBold" style={styles.closePillText}>
-                  Close
-                </ThemedText>
-              </Pressable>
+            {/* Full Screen Header */}
+            <View style={styles.fullScreenHeader}>
+              <ThemedText type="subtitle" style={styles.fullScreenTitle}>
+                QR Scanner
+              </ThemedText>
+              <View style={styles.fullScreenTopActions}>
+                <Pressable
+                  testID="toggle-torch-button"
+                  style={({ pressed }) => [
+                    styles.pillButton,
+                    torch && styles.pillButtonActive,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => setTorch((t) => !t)}
+                >
+                  <ThemedText type="smallBold" style={torch ? styles.pillTextActive : styles.pillText}>
+                    {torch ? 'Flash On' : 'Flash Off'}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  testID="close-full-screen-button"
+                  style={({ pressed }) => [
+                    styles.pillButton,
+                    styles.closePill,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => setFullScreenVisible(false)}
+                >
+                  <ThemedText type="smallBold" style={styles.closePillText}>
+                    Close
+                  </ThemedText>
+                </Pressable>
+              </View>
             </View>
-          </View>
 
-          {/* Full Screen Viewfinder Overlay */}
-          <View style={styles.fullScreenOverlay}>
-            <View style={styles.fullScreenTargetFrame}>
-              <View style={[styles.corner, styles.cornerTL, styles.cornerLarge]} />
-              <View style={[styles.corner, styles.cornerTR, styles.cornerLarge]} />
-              <View style={[styles.corner, styles.cornerBL, styles.cornerLarge]} />
-              <View style={[styles.corner, styles.cornerBR, styles.cornerLarge]} />
+            {/* Full Screen Viewfinder Overlay */}
+            <View style={styles.fullScreenOverlay}>
+              <View style={styles.fullScreenTargetFrame}>
+                <View style={[styles.corner, styles.cornerTL, styles.cornerLarge]} />
+                <View style={[styles.corner, styles.cornerTR, styles.cornerLarge]} />
+                <View style={[styles.corner, styles.cornerBL, styles.cornerLarge]} />
+                <View style={[styles.corner, styles.cornerBR, styles.cornerLarge]} />
+              </View>
+              <ThemedText type="small" style={styles.fullScreenInstruction}>
+                Align QR Code in target box
+              </ThemedText>
             </View>
-            <ThemedText type="small" style={styles.fullScreenInstruction}>
-              Align QR Code in target box
-            </ThemedText>
-          </View>
 
-          {/* Full Screen Bottom Zoom Controls */}
-          <View style={styles.fullScreenBottomControls}>
-            <View style={styles.zoomPillGroup}>
-              {ZOOM_PRESETS.map((preset) => {
-                const isActive = zoom === preset.val;
-                return (
-                  <Pressable
-                    key={preset.label}
-                    testID={preset.testID}
-                    style={({ pressed }) => [
-                      styles.zoomPillBtn,
-                      isActive && styles.zoomPillBtnActive,
-                      pressed && styles.buttonPressed,
-                    ]}
-                    onPress={() => setZoom(preset.val)}
-                  >
-                    <ThemedText
-                      type="smallBold"
-                      style={isActive ? styles.zoomPillTextActive : styles.zoomPillText}
+            {/* Full Screen Bottom Zoom Controls */}
+            <View style={styles.fullScreenBottomControls}>
+              <View style={styles.zoomPillGroup}>
+                {ZOOM_PRESETS.map((preset) => {
+                  const isActive = zoom === preset.val;
+                  return (
+                    <Pressable
+                      key={preset.label}
+                      testID={preset.testID}
+                      style={({ pressed }) => [
+                        styles.zoomPillBtn,
+                        isActive && styles.zoomPillBtnActive,
+                        pressed && styles.buttonPressed,
+                      ]}
+                      onPress={() => setZoom(preset.val)}
                     >
-                      {preset.label}
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
+                      <ThemedText
+                        type="smallBold"
+                        style={isActive ? styles.zoomPillTextActive : styles.zoomPillText}
+                      >
+                        {preset.label}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
+
     </ThemedView>
   );
 }

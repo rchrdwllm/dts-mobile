@@ -18,8 +18,8 @@ export type ReferenceInputCardProps = {
 export function ReferenceInputCard({
   value,
   onChangeText,
-  label = 'Reference Code',
-  placeholder = 'Enter Reference Number...',
+  label = 'Drone Serial No.',
+  placeholder = 'Enter Drone Serial No....',
 }: ReferenceInputCardProps) {
   const theme = useTheme();
   const [isFocused, setIsFocused] = useState(false);
@@ -34,7 +34,7 @@ export function ReferenceInputCard({
       <View style={styles.headerRow}>
         <ThemedText type="smallBold">{label}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.badgeText}>
-          Alphanumeric Only
+          Alphanumeric (Max 9)
         </ThemedText>
       </View>
 
@@ -56,9 +56,10 @@ export function ReferenceInputCard({
           keyboardType="default"
           autoCapitalize="characters"
           autoCorrect={false}
+          maxLength={9}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          accessibilityLabel="Alphanumeric reference input"
+          accessibilityLabel="Drone serial number input"
         />
       </View>
     </ThemedView>

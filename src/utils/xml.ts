@@ -1,10 +1,12 @@
 export interface ScanRecordInput {
+  /** Battery Serial No. scanned from QR code */
   batteryCode?: string;
+  /** Drone Serial No. manually typed by user */
   droneSerial?: string;
   date?: string;
-  /** Legacy alias for batteryCode */
-  inputNumber?: string;
   /** Legacy alias for droneSerial */
+  inputNumber?: string;
+  /** Legacy alias for batteryCode */
   qrCodeData?: string;
   /** Legacy alias for date */
   timestamp?: string;
@@ -60,8 +62,8 @@ const formatDateStr = (inputDate?: string): string => {
  * Generates a formatted single <Scan> block string.
  */
 const formatScanNode = (scanInput: ScanRecordInput): string => {
-  const bCode = scanInput.batteryCode ?? scanInput.inputNumber ?? '';
-  const dSerial = scanInput.droneSerial ?? scanInput.qrCodeData ?? '';
+  const bCode = (scanInput.batteryCode ?? scanInput.qrCodeData ?? '').slice(0, 9);
+  const dSerial = (scanInput.droneSerial ?? scanInput.inputNumber ?? '').slice(0, 9);
   const formattedDate = formatDateStr(scanInput.date ?? scanInput.timestamp);
 
   const escapedBatteryCode = escapeXml(bCode);

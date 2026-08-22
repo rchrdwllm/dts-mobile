@@ -15,10 +15,11 @@ Implement pure JavaScript XML serializer and manipulator helpers in `src/utils/x
 ## Implementation Decisions
 * **Serializer & Manipulator Engine**: Pure JavaScript string and layout manipulation with zero native code dependencies (ensuring cross-platform compatibility with React Native / Expo).
 * **Field Mapping for Scan Record**:
-  * `<BatteryCode>`: Derived from manual user input (numeric/string code).
-  * `<DroneSerial>`: Derived from scanned QR code data.
+  * `<BatteryCode>`: Derived from scanned Battery Serial No. QR code data (restricted to max 9 characters).
+  * `<DroneSerial>`: Derived from manual Drone Serial No. user input (restricted to max 9 characters).
   * `<Date>`: Today's date formatted as `YYYY-MM-DD`.
   * Additional elements (`<Replacement>`, `<FOM>`, `<FOMdate>`, `<FOM2>`, `<FOM2date>`, `<FOM3>`, `<FOM3date>`): Included as empty tags to match the schema format in `Battery_DATA.xml`.
+* **Field Length Constraints**: `<BatteryCode>` and `<DroneSerial>` elements must never exceed 9 characters. The serializer truncates values to a maximum of 9 characters before XML escaping.
 * **XML Escaping**: Characters like `<`, `>`, `&`, `"`, and `'` must be safely escaped using `escapeXml`.
 * **Appending Scan Data**:
   * Utility function (e.g. `appendScanToXml(existingXmlString, newScanData)`):

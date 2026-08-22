@@ -39,7 +39,7 @@ describe('Google Drive Sync API Utilities', () => {
 
       expect(fileId).toBe('existing-file-123');
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(`https://www.googleapis.com/drive/v3/files?pageSize=100`),
+        expect.stringContaining(`https://www.googleapis.com/drive/v3/files?q=`),
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: `Bearer ${mockAccessToken}`,
@@ -83,7 +83,7 @@ describe('Google Drive Sync API Utilities', () => {
   });
 
   describe('updateXmlFile', () => {
-    it('should make multipart PATCH request to update file content and modifiedTime', async () => {
+    it('should make media PATCH request to update file content', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ id: 'existing-file-123', name: 'Battery_DATA.xml' }),
@@ -94,14 +94,14 @@ describe('Google Drive Sync API Utilities', () => {
 
       expect(result).toEqual({ fileId: 'existing-file-123', fileName: 'Battery_DATA.xml' });
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://www.googleapis.com/upload/drive/v3/files/existing-file-123?uploadType=multipart&supportsAllDrives=true',
+        'https://www.googleapis.com/upload/drive/v3/files/existing-file-123?uploadType=media&supportsAllDrives=true',
         expect.objectContaining({
           method: 'PATCH',
           headers: expect.objectContaining({
             Authorization: `Bearer ${mockAccessToken}`,
-            'Content-Type': expect.stringContaining('multipart/related; boundary='),
+            'Content-Type': 'application/xml',
           }),
-          body: expect.stringContaining(updatedXml),
+          body: updatedXml,
         })
       );
     });
@@ -197,7 +197,13 @@ describe('Google Drive Sync API Utilities', () => {
         text: async () => existingXml,
       });
 
-      // 3. Update PATCH response
+      // 3. Update media PATCH response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'existing-file-123', name: 'Battery_DATA.xml' }),
+      });
+
+      // 4. Update metadata modifiedTime response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ id: 'existing-file-123', name: 'Battery_DATA.xml' }),
@@ -206,7 +212,7 @@ describe('Google Drive Sync API Utilities', () => {
       const result = await syncScanToGoogleDrive('GE0588607', 'R12024007', '2025-08-13');
 
       expect(GoogleOneTapSignIn.getTokens).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(mockFetch).toHaveBeenCalledTimes(4);
 
       const patchCallArgs = mockFetch.mock.calls[2];
       const patchBody = patchCallArgs[1].body as string;

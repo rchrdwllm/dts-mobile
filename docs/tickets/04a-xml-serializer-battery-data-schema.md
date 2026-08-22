@@ -1,6 +1,6 @@
 # 04a — Update XML Serializer to match Battery_DATA.xml Schema
 
-**What to build:** Update the XML serialization helper to output scan data formatted according to the `Battery_DATA.xml` schema layout (`<QRCodeScans><Scan>...`). The serialized payload must include `<BatteryCode>` from user input, `<DroneSerial>` from scanned QR data, `<Date>` formatted as `YYYY-MM-DD`, and empty tags for `<Replacement>`, `<FOM>`, `<FOMdate>`, `<FOM2>`, `<FOM2date>`, `<FOM3>`, and `<FOM3date>`.
+**What to build:** Update the XML serialization helper to output scan data formatted according to the `Battery_DATA.xml` schema layout (`<QRCodeScans><Scan>...`). The serialized payload must include `<BatteryCode>` from scanned QR data, `<DroneSerial>` from user input, `<Date>` formatted as `YYYY-MM-DD`, and empty tags for `<Replacement>`, `<FOM>`, `<FOMdate>`, `<FOM2>`, `<FOM2date>`, `<FOM3>`, and `<FOM3date>`.
 
 **Blocked by:** 04 — XML Serializer & Scan Preview Card UI
 

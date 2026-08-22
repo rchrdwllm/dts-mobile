@@ -37,7 +37,8 @@ Use a development build with the custom native config plugin. The login utilizes
 * **Bottom Status Panel UI**: Render a stylized `<ThemedView type="backgroundElement">` card at the bottom of the screen containing:
   * "Account Connected" hint row showing user's email.
   * "Folder Destination" hint row (`/QRScannerGDrive`).
-  * "Reference Batch" hint row showing current reference code.
+  * "Drone Serial No." hint row showing current drone serial input.
+  * "Battery Serial No." hint row showing current scanned battery serial QR payload.
   * Prominent "Sign Out" button at the bottom of the container with loading state while sign-out is processing.
 
 ## Testing Decisions

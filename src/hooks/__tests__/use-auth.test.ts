@@ -138,6 +138,7 @@ describe('useAuth hook', () => {
     };
 
     (GoogleOneTapSignIn.signIn as jest.Mock).mockResolvedValue(mockSuccessResponse);
+    (GoogleOneTapSignIn.presentExplicitSignIn as jest.Mock).mockResolvedValue(mockSuccessResponse);
     (GoogleOneTapSignIn.checkPlayServices as jest.Mock).mockResolvedValue(true);
 
     let hookValues!: ReturnType<typeof useAuth>;
@@ -157,7 +158,7 @@ describe('useAuth hook', () => {
     });
 
     expect(GoogleOneTapSignIn.checkPlayServices).toHaveBeenCalled();
-    expect(GoogleOneTapSignIn.signIn).toHaveBeenCalled();
+    expect(GoogleOneTapSignIn.presentExplicitSignIn).toHaveBeenCalled();
     expect(hookValues.user).toEqual(mockSuccessResponse.data.user);
     expect(hookValues.idToken).toBe('mock-id-token');
     expect(hookValues.isAuthenticated).toBe(true);

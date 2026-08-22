@@ -1,7 +1,7 @@
-# 03 — Alphanumeric Reference Input UI & Sanitization
+# 03 — Alphanumeric Drone Serial No. Input UI & Sanitization
 
 **What to build:**
-A styled input card at the top of the main screen where users enter an alphanumeric reference number for the scan. Configure the virtual keyboard to show a standard keyboard, and sanitize text updates on the fly so any non-alphanumeric characters (spaces, symbols, punctuation) are instantly stripped out.
+A styled input card at the top of the main screen where users enter an alphanumeric Drone Serial No. for the scan. Configure the virtual keyboard to show a standard keyboard, and sanitize text updates on the fly so any non-alphanumeric characters (spaces, symbols, punctuation) are instantly stripped out.
 
 **Blocked by:** 02 — Single-Screen Navigation and Layout Setup
 

@@ -1,4 +1,4 @@
-# 05 — Camera Viewport & QR Scanner State Lock
+# 05 — Camera Viewport & Battery Serial No. QR Scanner State Lock
 
 **What to build:**
 Integrate the camera viewport using the modern Expo Camera module, displaying a stylized viewfinder overlay with alignment guides. Implement permission check logic, a permission-denied fallback button, scanning event triggers that automatically lock the scanner on detection, and a "Rescan" button overlaying the camera viewport to clear and unlock the state.

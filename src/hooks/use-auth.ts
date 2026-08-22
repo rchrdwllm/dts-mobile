@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { 
-  GoogleOneTapSignIn, 
-  isNoSavedCredentialFoundResponse, 
-  isSuccessResponse 
+import { useEffect, useState } from 'react';
+import {
+  GoogleOneTapSignIn,
+  isSuccessResponse
 } from 'react-native-nitro-google-signin';
 
 export interface GoogleUser {
@@ -74,24 +73,12 @@ export function useAuth() {
       console.log('[DEBUG] 1. Checking play services...');
       await GoogleOneTapSignIn.checkPlayServices();
 
-      console.log('[DEBUG] 2. Calling GoogleOneTapSignIn.signIn()...');
-      let response = await GoogleOneTapSignIn.signIn();
-      console.log('[DEBUG] signIn() response:', JSON.stringify(response));
+      console.log('[DEBUG] Calling GoogleOneTapSignIn.presentExplicitSignIn() directly...');
+      const response = await GoogleOneTapSignIn.presentExplicitSignIn();
+      console.log('[DEBUG] presentExplicitSignIn() response:', JSON.stringify(response));
 
-      if (isNoSavedCredentialFoundResponse(response)) {
-        console.log('[DEBUG] 3. No saved credentials. Calling createAccount()...');
-        response = await GoogleOneTapSignIn.createAccount();
-        console.log('[DEBUG] createAccount() response:', JSON.stringify(response));
-      }
-
-      if (isNoSavedCredentialFoundResponse(response)) {
-        console.log('[DEBUG] 4. Still no credentials. Calling presentExplicitSignIn()...');
-        response = await GoogleOneTapSignIn.presentExplicitSignIn();
-        console.log('[DEBUG] presentExplicitSignIn() response:', JSON.stringify(response));
-      }
-
-      console.log('[DEBUG] 5. Final response type:', response.type);
-      if (isSuccessResponse(response)) {
+      console.log('[DEBUG] 5. Final response type:', response?.type);
+      if (response && isSuccessResponse(response)) {
         console.log('[DEBUG] Sign-in succeeded. User data:', JSON.stringify(response.data.user));
         const { user: googleUser, idToken: token } = response.data;
         setUser({

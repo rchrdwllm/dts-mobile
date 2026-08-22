@@ -42,8 +42,8 @@ describe('serializeScanRecord', () => {
 
   it('should support legacy parameter aliases (inputNumber, qrCodeData, timestamp)', () => {
     const result = serializeScanRecord({
-      inputNumber: 'GE0588927',
-      qrCodeData: 'R12022019',
+      qrCodeData: 'GE0588927',
+      inputNumber: 'R12022019',
       timestamp: '2025-08-08T12:00:00.000Z',
     });
 
@@ -55,12 +55,12 @@ describe('serializeScanRecord', () => {
   it('should escape special characters in batteryCode and droneSerial', () => {
     const result = serializeScanRecord({
       batteryCode: 'GE<588>&',
-      droneSerial: 'R120"22\'19',
+      droneSerial: 'R12"22\'19',
       date: '2025-08-08',
     });
 
     expect(result).toContain('<BatteryCode>GE&lt;588&gt;&amp;</BatteryCode>');
-    expect(result).toContain('<DroneSerial>R120&quot;22&apos;19</DroneSerial>');
+    expect(result).toContain('<DroneSerial>R12&quot;22&apos;19</DroneSerial>');
   });
 
   it('should format today\'s date as YYYY-MM-DD if no date is provided', () => {
@@ -73,6 +73,17 @@ describe('serializeScanRecord', () => {
     expect(dateMatch).not.toBeNull();
     const todayStr = new Date().toISOString().split('T')[0];
     expect(dateMatch![1]).toBe(todayStr);
+  });
+
+  it('should truncate batteryCode and droneSerial to a maximum of 9 characters', () => {
+    const result = serializeScanRecord({
+      batteryCode: 'GE0588927EXTRA',
+      droneSerial: 'R1202201999999',
+      date: '2025-08-08',
+    });
+
+    expect(result).toContain('<BatteryCode>GE0588927</BatteryCode>');
+    expect(result).toContain('<DroneSerial>R12022019</DroneSerial>');
   });
 });
 
@@ -117,12 +128,12 @@ describe('appendScanToXml', () => {
 
     const result = appendScanToXml(existingXml, {
       batteryCode: 'GE<123>&',
-      droneSerial: 'R120"45\'67',
+      droneSerial: 'R12"45\'67',
       date: '2025-08-13',
     });
 
     expect(result).toContain('<BatteryCode>GE&lt;123&gt;&amp;</BatteryCode>');
-    expect(result).toContain('<DroneSerial>R120&quot;45&apos;67</DroneSerial>');
+    expect(result).toContain('<DroneSerial>R12&quot;45&apos;67</DroneSerial>');
   });
 
   it('should fallback to fresh root document if existingXml is null, empty, or malformed', () => {
