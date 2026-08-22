@@ -219,8 +219,9 @@ describe('CameraScannerCard', () => {
     });
 
     expect(mockOnScan).toHaveBeenCalledWith('FULLSCREE');
-    const modal = tree.root.findByProps({ testID: 'full-screen-camera-modal' });
-    expect(modal.props.visible).toBe(false);
+    const modals = tree.root.findAllByProps({ testID: 'full-screen-camera-modal' });
+    expect(modals).toHaveLength(0);
   });
 });
+
 
