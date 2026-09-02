@@ -1,4 +1,4 @@
-import { escapeXml, serializeScanRecord, appendScanToXml } from '../xml';
+import { escapeXml, serializeScanRecord, appendScanToXml, batteryCodeExistsInXml } from '../xml';
 
 describe('escapeXml', () => {
   it('should escape special XML characters', () => {
@@ -99,7 +99,7 @@ describe('appendScanToXml', () => {
     <FOM></FOM>
     <FOMdate></FOMdate>
     <FOM2></FOM2>
-    <FOM2date></FOMdate>
+    <FOM2date></FOM2date>
     <FOM3></FOM3>
     <FOM3date></FOM3date>
   </Scan>
@@ -156,5 +156,47 @@ describe('appendScanToXml', () => {
     expect(malformedResult).toContain('<QRCodeScans>');
   });
 });
+
+describe('batteryCodeExistsInXml', () => {
+  const sampleXml = `<?xml version="1.0" encoding="utf-8"?>
+<QRCodeScans>
+  <Scan>
+    <BatteryCode>GE0588927</BatteryCode>
+    <DroneSerial>R12022019</DroneSerial>
+    <Date>2025-08-08</Date>
+  </Scan>
+  <Scan>
+    <BatteryCode>GE0588607</BatteryCode>
+    <DroneSerial>R12024007</DroneSerial>
+    <Date>2025-08-13</Date>
+  </Scan>
+  <Scan>
+    <BatteryCode>GE&lt;123&gt;&amp;</BatteryCode>
+    <DroneSerial>R100</DroneSerial>
+    <Date>2025-08-15</Date>
+  </Scan>
+</QRCodeScans>`;
+
+  it('should return true if battery code exists in XML', () => {
+    expect(batteryCodeExistsInXml(sampleXml, 'GE0588927')).toBe(true);
+    expect(batteryCodeExistsInXml(sampleXml, 'GE0588607')).toBe(true);
+  });
+
+  it('should return false if battery code does not exist in XML', () => {
+    expect(batteryCodeExistsInXml(sampleXml, 'UNKNOWN99')).toBe(false);
+  });
+
+  it('should handle case insensitivity and character limits/escaping', () => {
+    expect(batteryCodeExistsInXml(sampleXml, 'ge0588927')).toBe(true);
+    expect(batteryCodeExistsInXml(sampleXml, 'GE<123>&')).toBe(true);
+  });
+
+  it('should return false if xml content is null, empty or invalid', () => {
+    expect(batteryCodeExistsInXml(null, 'GE0588927')).toBe(false);
+    expect(batteryCodeExistsInXml('', 'GE0588927')).toBe(false);
+    expect(batteryCodeExistsInXml('<Invalid>Xml</Invalid>', 'GE0588927')).toBe(false);
+  });
+});
+
 
 

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { Platform, StyleSheet, ActivityIndicator, Pressable, View, Alert, ScrollView, Modal } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedIcon } from '@/components/animated-icon';
+import { CameraScannerCard } from '@/components/camera-scanner-card';
 import { HintRow } from '@/components/hint-row';
 import { ReferenceInputCard } from '@/components/reference-input-card';
-import { CameraScannerCard } from '@/components/camera-scanner-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
@@ -13,6 +13,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { syncScanToGoogleDrive } from '@/utils/gdrive';
+import { sanitizeAlphanumeric } from '@/utils/sanitize';
 
 export default function HomeScreen() {
   const { isAuthenticated, isLoading, signIn, signOut, user } = useAuth();
@@ -36,8 +37,9 @@ export default function HomeScreen() {
       setScannedBatteryQr('');
     } catch (e) {
       console.error('Sync to Google Drive failed:', e);
+      const isDuplicate = e instanceof Error && e.message.includes('already exists in');
       Alert.alert(
-        'Sync Failed',
+        isDuplicate ? 'Duplicate Scan' : 'Sync Failed',
         e instanceof Error ? e.message : 'An unknown error occurred during sync.'
       );
     } finally {
@@ -95,7 +97,7 @@ export default function HomeScreen() {
           <View style={styles.gateHero}>
             <AnimatedIcon />
             <ThemedText type="title" style={styles.gateTitle}>
-              QR Sync
+              DTS
             </ThemedText>
             <ThemedText type="default" themeColor="textSecondary" style={styles.gateSubtitle}>
               Please sign in with your Google account to authorize scan uploads to Google Drive.
@@ -134,13 +136,13 @@ export default function HomeScreen() {
         >
           <ReferenceInputCard
             value={droneSerialInput}
-            onChangeText={(text) => setDroneSerialInput(text.slice(0, 9))}
+            onChangeText={(text) => setDroneSerialInput(sanitizeAlphanumeric(text, 9))}
           />
 
           <CameraScannerCard
             scanned={Boolean(scannedBatteryQr)}
             scannedValue={scannedBatteryQr}
-            onScan={(data) => setScannedBatteryQr(data.slice(0, 9))}
+            onScan={(data) => setScannedBatteryQr(sanitizeAlphanumeric(data, 9))}
             onRescan={() => setScannedBatteryQr('')}
           />
 
@@ -214,6 +216,10 @@ export default function HomeScreen() {
               )}
             </Pressable>
           </ThemedView>
+          <View style={styles.footerCredits}>
+            <ThemedText>DTS</ThemedText>
+            <ThemedText>By Richard William Flores</ThemedText>
+          </View>
 
           {Platform.OS === 'web' && <WebBadge />}
         </ScrollView>
@@ -365,5 +371,11 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     color: '#FF3B30',
     fontWeight: '600',
+  },
+  footerCredits: {
+    alignItems: 'center',
+    textAlign: 'center',
+    opacity: 0.5,
+    marginTop: Spacing.four
   },
 });

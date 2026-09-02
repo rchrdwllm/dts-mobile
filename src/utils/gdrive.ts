@@ -1,10 +1,11 @@
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin';
-import { appendScanToXml, serializeScanRecord } from './xml';
+import { appendScanToXml, serializeScanRecord, batteryCodeExistsInXml } from './xml';
 
 export interface UploadResult {
   fileId: string;
   fileName: string;
 }
+
 
 export const TARGET_FOLDER_ID = process.env.EXPO_PUBLIC_GDRIVE_TARGET_FOLDER_ID || '1A2B3C4D5E6F7G8H9I0J';
 
@@ -242,6 +243,10 @@ export async function syncScanToGoogleDrive(
     if (existingFileId) {
       console.log(`[GDrive Sync] Found existing file '${fileName}' (ID: ${existingFileId}). Appending scan data...`);
       const existingXml = await downloadFileContent(token, existingFileId);
+      if (batteryCodeExistsInXml(existingXml, batteryCode)) {
+        console.warn(`[GDrive Sync] Battery serial '${batteryCode}' already exists in '${fileName}'. Aborting save.`);
+        throw new Error(`Battery serial '${batteryCode}' already exists in ${fileName}.`);
+      }
       const updatedXml = appendScanToXml(existingXml, {
         batteryCode,
         droneSerial,

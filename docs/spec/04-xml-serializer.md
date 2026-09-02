@@ -25,6 +25,9 @@ Implement pure JavaScript XML serializer and manipulator helpers in `src/utils/x
   * Utility function (e.g. `appendScanToXml(existingXmlString, newScanData)`):
     * If `existingXmlString` is non-empty and valid `Battery_DATA.xml`: Inserts the serialized `<Scan>...</Scan>` block directly before the closing `</QRCodeScans>` tag.
     * If `existingXmlString` is empty, missing, or invalid: Generates a complete fresh XML document with the root header `<?xml version="1.0" encoding="utf-8"?>` and `<QRCodeScans>` wrapper surrounding the single scan.
+* **Duplicate Battery Code Checking**:
+  * Utility function `batteryCodeExistsInXml(existingXmlString, batteryCode)`:
+    * Parses existing XML content and returns `true` if any existing `<Scan>` block contains a matching `<BatteryCode>` element (case-insensitive, trimmed).
 * **Output Format**:
   ```xml
   <?xml version="1.0" encoding="utf-8"?>

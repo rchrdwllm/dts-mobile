@@ -140,5 +140,40 @@ export const appendScanToXml = (
   return resultXml;
 };
 
+/**
+ * Checks if a given battery serial number already exists inside Battery_DATA.xml payload string.
+ */
+export const batteryCodeExistsInXml = (
+  existingXml: string | null | undefined,
+  batteryCode: string
+): boolean => {
+  if (!existingXml || typeof existingXml !== 'string' || !batteryCode) {
+    return false;
+  }
+
+  const cleanTargetCode = batteryCode.slice(0, 9).trim().toLowerCase();
+  if (!cleanTargetCode) {
+    return false;
+  }
+
+  const matches = [...existingXml.matchAll(/<BatteryCode\s*>(.*?)<\/BatteryCode\s*>/gi)];
+  for (const match of matches) {
+    const rawVal = match[1] || '';
+    const unescapedVal = rawVal
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, '&');
+
+    if (unescapedVal.trim().toLowerCase() === cleanTargetCode) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+
 
 

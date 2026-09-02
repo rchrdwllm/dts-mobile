@@ -57,10 +57,9 @@ describe('useAuth hook', () => {
     expect(hookValues.isLoading).toBe(false);
     expect(GoogleOneTapSignIn.configure).toHaveBeenCalledWith({
       webClientId: 'autoDetect',
-      scopes: [
-        'https://www.googleapis.com/auth/drive',
-        'https://www.googleapis.com/auth/drive.file',
-      ],
+        scopes: [
+          'https://www.googleapis.com/auth/drive.file',
+        ],
     });
     expect(GoogleOneTapSignIn.getCurrentUser).toHaveBeenCalled();
   });
@@ -208,7 +207,6 @@ describe('useAuth hook', () => {
       expect(GoogleOneTapSignIn.configure).toHaveBeenCalledWith({
         webClientId: 'test-web-client-id',
         scopes: [
-          'https://www.googleapis.com/auth/drive',
           'https://www.googleapis.com/auth/drive.file',
         ],
       });

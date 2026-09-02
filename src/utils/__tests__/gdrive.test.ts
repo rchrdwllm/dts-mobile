@@ -221,6 +221,41 @@ describe('Google Drive Sync API Utilities', () => {
       expect(result).toEqual({ fileId: 'existing-file-123', fileName: 'Battery_DATA.xml' });
     });
 
+    it('should throw a duplicate error and abort saving if battery serial already exists in XML', async () => {
+      (GoogleOneTapSignIn.getTokens as jest.Mock).mockResolvedValueOnce({
+        accessToken: mockAccessToken,
+      });
+
+      const existingXml = `<?xml version="1.0" encoding="utf-8"?>
+<QRCodeScans>
+  <Scan>
+    <BatteryCode>GE0588927</BatteryCode>
+    <DroneSerial>R12022019</DroneSerial>
+    <Date>2025-08-08</Date>
+  </Scan>
+</QRCodeScans>`;
+
+      // 1. Search response: file exists
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ files: [{ id: 'existing-file-123', name: 'Battery_DATA.xml' }] }),
+      });
+
+      // 2. Download content response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => existingXml,
+      });
+
+      // Attempt to sync the exact same battery serial 'GE0588927'
+      await expect(
+        syncScanToGoogleDrive('GE0588927', 'R12024007', '2025-08-13')
+      ).rejects.toThrow("Battery serial 'GE0588927' already exists in Battery_DATA.xml.");
+
+      // Verify that no PATCH or upload network requests were made after downloading
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
     it('should create a new Battery_DATA.xml file via multipart POST if file does not exist', async () => {
       (GoogleOneTapSignIn.getTokens as jest.Mock).mockResolvedValueOnce({
         accessToken: mockAccessToken,

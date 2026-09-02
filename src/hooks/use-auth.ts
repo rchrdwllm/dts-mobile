@@ -24,7 +24,6 @@ export function useAuth() {
     GoogleOneTapSignIn.configure({
       webClientId: clientId,
       scopes: [
-        'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/drive.file',
       ],
     });

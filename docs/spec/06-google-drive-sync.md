@@ -29,8 +29,9 @@ Use Google Drive REST API v3 to:
 * **Sync Workflow**:
   * **Step 1: Check existing file**:
     * Perform search query: `GET https://www.googleapis.com/drive/v3/files?q=name='Battery_DATA.xml'+and+'TARGET_FOLDER_ID'+in+parents+and+trashed=false`.
-  * **Step 2: Read & Append (if file exists)**:
+  * **Step 2: Read & Validate Duplicate & Append (if file exists)**:
     * Download existing file content: `GET https://www.googleapis.com/drive/v3/files/{fileId}?alt=media`.
+    * Validate duplicate serial: Run `batteryCodeExistsInXml(existingXmlContent, batteryCode)`. If `true`, abort sync operation and throw duplicate serial error.
     * Append new scan entry using XML serializer helper: `updatedXml = appendScanToXml(existingXmlContent, newScanData)`.
     * Update/Overwrite existing file in Google Drive:
       * Option A (Direct Media Update): `PATCH https://www.googleapis.com/upload/drive/v3/files/{fileId}?uploadType=media` with `Content-Type: application/xml` and `updatedXml` body.

@@ -9,6 +9,6 @@ Integrate the camera viewport using the modern Expo Camera module, displaying a 
 
 - [ ] Camera permissions are requested dynamically, rendering a friendly fallback if permission is denied.
 - [ ] Viewfinder displays a styled camera layout with a central target box indicator.
-- [ ] Barcode scanning triggers instantly on QR detection, saves the result, and immediately stops scanning to prevent duplicate scans.
-- [ ] Scanning QR updates the XML serializer preview card with the scanned value.
+- [ ] Barcode scanning triggers instantly on 2D barcode detection (QR Code & Data Matrix), sanitizes non-alphanumeric control characters, saves the result (max 9 chars), and immediately stops scanning to prevent duplicate scans.
+- [ ] Scanning a 2D barcode updates the XML serializer preview card with the scanned value.
 - [ ] A "Rescan" action is shown when a scan is locked, allowing operators to clear the scanned state and start scanning again.
