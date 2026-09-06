@@ -18,6 +18,12 @@
         "EXPO_PUBLIC_GDRIVE_TARGET_FOLDER_ID": "1SAfo9olVdYKeed-8oLxJZlSutKyQCWHo"
       }
     },
+    "ios-mode": {
+      "extends": "preview",
+      "env": {
+        "EXPO_PUBLIC_IOS_MODE": "true"
+      }
+    },
     "production": {
       "autoIncrement": true
     }

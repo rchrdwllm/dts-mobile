@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from './themed-text';
@@ -34,7 +34,7 @@ export function ReferenceInputCard({
       <View style={styles.headerRow}>
         <ThemedText type="smallBold">{label}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.badgeText}>
-          Alphanumeric (Max 9)
+          Alphanumeric · Max 9
         </ThemedText>
       </View>
 
@@ -43,7 +43,7 @@ export function ReferenceInputCard({
           styles.inputContainer,
           {
             backgroundColor: theme.background,
-            borderColor: isFocused ? '#007AFF' : theme.backgroundSelected,
+            borderColor: isFocused ? theme.primary : theme.border,
           },
         ]}
       >
@@ -69,8 +69,7 @@ export function ReferenceInputCard({
 const styles = StyleSheet.create({
   card: {
     alignSelf: 'stretch',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.four,
+    padding: 0,
     borderRadius: Spacing.four,
     gap: Spacing.two,
   },
@@ -84,14 +83,14 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     borderWidth: 1.5,
-    borderRadius: Spacing.two,
+    borderRadius: 12,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     marginTop: Spacing.one,
   },
   input: {
-    fontSize: 16,
+    fontSize: 14,
     padding: 0,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

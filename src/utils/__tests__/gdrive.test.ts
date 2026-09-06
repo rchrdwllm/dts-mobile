@@ -5,6 +5,7 @@ import {
   downloadFileContent,
   updateXmlFile,
   syncScanToGoogleDrive,
+  syncScansToGoogleDrive,
   TARGET_FOLDER_ID,
 } from '../gdrive';
 
@@ -164,6 +165,25 @@ describe('Google Drive Sync API Utilities', () => {
   });
 
   describe('syncScanToGoogleDrive', () => {
+    it('rejects all Drive sync attempts in iOS mode before requesting tokens or making HTTP calls', async () => {
+      const originalIosMode = process.env.EXPO_PUBLIC_IOS_MODE;
+      process.env.EXPO_PUBLIC_IOS_MODE = 'true';
+
+      try {
+        await expect(
+          syncScanToGoogleDrive('BATCH123', 'QR-DATA-XYZ', '2026-08-20')
+        ).rejects.toThrow('Google Drive sync is unavailable in iOS mode.');
+        await expect(
+          syncScansToGoogleDrive([{ batteryCode: 'BATCH123', droneSerial: 'QR-DATA-XYZ' }])
+        ).rejects.toThrow('Google Drive sync is unavailable in iOS mode.');
+
+        expect(GoogleOneTapSignIn.getTokens).not.toHaveBeenCalled();
+        expect(mockFetch).not.toHaveBeenCalled();
+      } finally {
+        process.env.EXPO_PUBLIC_IOS_MODE = originalIosMode;
+      }
+    });
+
     it('should fetch existing Battery_DATA.xml, append new scan record, and PATCH updated file', async () => {
       (GoogleOneTapSignIn.getTokens as jest.Mock).mockResolvedValueOnce({
         accessToken: mockAccessToken,

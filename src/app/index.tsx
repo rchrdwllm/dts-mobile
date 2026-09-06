@@ -1,46 +1,65 @@
+import { Image } from 'expo-image';
+import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import ReanimatedSwipeable, { SwipeDirection } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Animated, { Easing, FadeInDown, FadeOutLeft, LinearTransition, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AccountSheet } from '@/components/account-sheet';
 import { AnimatedIcon } from '@/components/animated-icon';
+import { AnimatedPressable } from '@/components/animated-pressable';
 import { CameraScannerCard } from '@/components/camera-scanner-card';
-import { HintRow } from '@/components/hint-row';
 import { ReferenceInputCard } from '@/components/reference-input-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
+import { isIosMode } from '@/config/ios-mode';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
-import { syncScanToGoogleDrive } from '@/utils/gdrive';
+import { syncScansToGoogleDrive } from '@/utils/gdrive';
 import { sanitizeAlphanumeric } from '@/utils/sanitize';
+
+const WORKFLOW_ENTER = FadeInDown.duration(250)
+  .easing(Easing.bezier(0.23, 1, 0.32, 1))
+  .reduceMotion(ReduceMotion.System);
+const SCAN_ROW_ENTER = FadeInDown.duration(200)
+  .easing(Easing.bezier(0.23, 1, 0.32, 1))
+  .reduceMotion(ReduceMotion.System);
+const SCAN_ROW_EXIT = FadeOutLeft.duration(200)
+  .easing(Easing.bezier(0.23, 1, 0.32, 1))
+  .reduceMotion(ReduceMotion.System);
+const SCAN_ROW_LAYOUT = LinearTransition.duration(200);
+
+type PendingScan = {
+  id: string;
+  droneSerial: string;
+  batteryCode: string;
+};
 
 export default function HomeScreen() {
   const { isAuthenticated, isLoading, signIn, signOut, user } = useAuth();
+  const iosMode = isIosMode();
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [droneSerialInput, setDroneSerialInput] = useState('');
-  const [scannedBatteryQr, setScannedBatteryQr] = useState('');
+  const [pendingScans, setPendingScans] = useState<PendingScan[]>([]);
 
   const handleSync = async () => {
-    if (!droneSerialInput || !scannedBatteryQr) {
-      return;
-    }
+    if (iosMode || pendingScans.length === 0) return;
     setSyncing(true);
     try {
-      await syncScanToGoogleDrive(scannedBatteryQr, droneSerialInput);
-      Alert.alert(
-        'Sync Successful',
-        'Your scan record has been successfully uploaded to Google Drive.'
-      );
-      setScannedBatteryQr('');
-    } catch (e) {
-      console.error('Sync to Google Drive failed:', e);
-      const isDuplicate = e instanceof Error && e.message.includes('already exists in');
+      await syncScansToGoogleDrive(pendingScans.map(({ batteryCode, droneSerial }) => ({ batteryCode, droneSerial })));
+      Alert.alert('Sync Successful', `${pendingScans.length} scan record${pendingScans.length === 1 ? '' : 's'} uploaded to Google Drive.`);
+      setPendingScans([]);
+    } catch (error) {
+      const isDuplicate = error instanceof Error && error.message.includes('already exists in');
       Alert.alert(
         isDuplicate ? 'Duplicate Scan' : 'Sync Failed',
-        e instanceof Error ? e.message : 'An unknown error occurred during sync.'
+        error instanceof Error ? error.message : 'An unknown error occurred during sync.'
       );
     } finally {
       setSyncing(false);
@@ -51,12 +70,8 @@ export default function HomeScreen() {
     setLoading(true);
     try {
       await signIn();
-    } catch (e) {
-      console.error('Sign-in failed on Home screen:', e);
-      Alert.alert(
-        'Sign-in Failed',
-        e instanceof Error ? e.message : 'An unknown error occurred during sign-in.'
-      );
+    } catch (error) {
+      Alert.alert('Sign-in Failed', error instanceof Error ? error.message : 'An unknown error occurred during sign-in.');
     } finally {
       setLoading(false);
     }
@@ -66,12 +81,9 @@ export default function HomeScreen() {
     setLoading(true);
     try {
       await signOut();
-    } catch (e) {
-      console.error('Sign-out failed on Home screen:', e);
-      Alert.alert(
-        'Sign-out Failed',
-        e instanceof Error ? e.message : 'An unknown error occurred during sign-out.'
-      );
+      setAccountOpen(false);
+    } catch (error) {
+      Alert.alert('Sign-out Failed', error instanceof Error ? error.message : 'An unknown error occurred during sign-out.');
     } finally {
       setLoading(false);
     }
@@ -79,303 +91,213 @@ export default function HomeScreen() {
 
   if (isLoading) {
     return (
-      <ThemedView style={styles.gateContainer} testID="auth-loading-indicator">
-        <SafeAreaView style={styles.gateSafeArea}>
-          <View style={styles.gateHero}>
-            <AnimatedIcon />
-            <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: Spacing.four }} />
-          </View>
-        </SafeAreaView>
-      </ThemedView>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ThemedView style={styles.gateContainer} testID="auth-loading-indicator">
+          <ActivityIndicator size="large" color="#007AFF" />
+        </ThemedView>
+      </>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <ThemedView style={styles.gateContainer}>
-        <SafeAreaView style={styles.gateSafeArea}>
-          <View style={styles.gateHero}>
-            <AnimatedIcon />
-            <ThemedText type="title" style={styles.gateTitle}>
-              DTS
-            </ThemedText>
-            <ThemedText type="default" themeColor="textSecondary" style={styles.gateSubtitle}>
-              Please sign in with your Google account to authorize scan uploads to Google Drive.
-            </ThemedText>
-          </View>
-
-          <Pressable
-            disabled={loading}
-            style={({ pressed }) => [
-              styles.gateButton,
-              pressed && styles.buttonPressed,
-              loading && styles.buttonDisabled,
-            ]}
-            onPress={handleSignIn}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <ThemedText type="default" style={styles.gateButtonText}>
-                Sign In with Google
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ThemedView style={styles.gateContainer}>
+          <SafeAreaView style={styles.gateSafeArea}>
+            <View style={styles.gateHero}>
+              <AnimatedIcon />
+              <ThemedText type="title" style={styles.gateTitle}>DTS</ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.gateSubtitle}>
+                Scan battery serials and securely save each record to your shared Google Drive folder.
               </ThemedText>
-            )}
-          </Pressable>
-        </SafeAreaView>
-      </ThemedView>
+            </View>
+            <AnimatedPressable
+              disabled={loading}
+              style={[styles.primaryButton, loading && styles.disabled]}
+              onPress={handleSignIn}>
+              {loading ? <ActivityIndicator color="#ffffff" /> : <ThemedText style={styles.primaryButtonText}>Continue with Google</ThemedText>}
+            </AnimatedPressable>
+          </SafeAreaView>
+        </ThemedView>
+      </>
     );
   }
 
+  const hasDroneSerial = Boolean(droneSerialInput);
+  const hasPendingScans = pendingScans.length > 0;
+  const removeScan = (id: string) => setPendingScans((scans) => scans.filter((scan) => scan.id !== id));
+
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          style={styles.scrollContent}
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <ReferenceInputCard
-            value={droneSerialInput}
-            onChangeText={(text) => setDroneSerialInput(sanitizeAlphanumeric(text, 9))}
-          />
-
-          <CameraScannerCard
-            scanned={Boolean(scannedBatteryQr)}
-            scannedValue={scannedBatteryQr}
-            onScan={(data) => setScannedBatteryQr(sanitizeAlphanumeric(data, 9))}
-            onRescan={() => setScannedBatteryQr('')}
-          />
-
-          <Pressable
-            disabled={!droneSerialInput || !scannedBatteryQr || syncing}
-            style={({ pressed }) => [
-              styles.syncButton,
-              (!droneSerialInput || !scannedBatteryQr) && styles.syncButtonDisabled,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={handleSync}
-            accessibilityLabel="Save scan to Google Drive"
-          >
-            <ThemedText type="default" style={styles.syncButtonText}>
-              Save to Google Drive
-            </ThemedText>
-          </Pressable>
-
-          <Modal transparent visible={syncing} animationType="fade">
-            <View style={styles.overlayContainer}>
-              <View style={[styles.overlayCard, { backgroundColor: theme.backgroundElement }]}>
-                <ActivityIndicator size="large" color="#007AFF" style={styles.overlaySpinner} />
-                <ThemedText type="default" style={[styles.overlayText, { color: theme.text }]}>
-                  Syncing to Google Drive...
-                </ThemedText>
-              </View>
-            </View>
-          </Modal>
-
-          <ThemedView type="backgroundElement" style={styles.stepContainer}>
-            <HintRow
-              title="Account Connected"
-              hint={<ThemedText type="small">{user?.email}</ThemedText>}
-            />
-            <HintRow
-              title="Folder Destination"
-              hint={<ThemedText type="code">Shared Target Folder</ThemedText>}
-            />
-            <HintRow
-              title="Drone Serial No."
-              hint={
-                <ThemedText type="code">
-                  {droneSerialInput ? droneSerialInput : '(None set)'}
-                </ThemedText>
-              }
-            />
-            <HintRow
-              title="Battery Serial No."
-              hint={
-                <ThemedText type="code">
-                  {scannedBatteryQr ? scannedBatteryQr : '(None scanned)'}
-                </ThemedText>
-              }
-            />
+      <Stack.Screen
+        options={{
+          headerRight: () => (
             <Pressable
-              disabled={loading}
-              style={({ pressed }) => [
-                styles.signOutButton,
-                pressed && styles.buttonPressed,
-                loading && styles.buttonDisabled,
-              ]}
-              onPress={handleSignOut}
-              accessibilityLabel="Sign out of Google Account"
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#FF3B30" />
+              style={[styles.accountButton, { backgroundColor: theme.backgroundElement }]}
+              onPress={() => setAccountOpen(true)}
+              accessibilityLabel="Open account details">
+              {user?.photo ? (
+                <Image
+                  source={{ uri: user.photo }}
+                  style={styles.accountProfilePhoto}
+                  contentFit="cover"
+                  testID="header-profile-photo"
+                />
               ) : (
-                <ThemedText type="smallBold" style={styles.signOutButtonText}>
-                  Sign Out of Google
-                </ThemedText>
+                <ThemedText type="smallBold">{user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || '?'}</ThemedText>
               )}
             </Pressable>
-          </ThemedView>
-          <View style={styles.footerCredits}>
-            <ThemedText>DTS</ThemedText>
-            <ThemedText>By Richard William Flores</ThemedText>
+          ),
+        }}
+      />
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+
+        <ScrollView contentContainerStyle={styles.scrollContent} contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={styles.intro}>
+            <ThemedText type="default" style={styles.introTitle}>Build a scan batch</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">Enter a drone serial and scan as many battery pairs as needed before saving.</ThemedText>
           </View>
 
-          {Platform.OS === 'web' && <WebBadge />}
+          <ThemedView type="backgroundElement" style={styles.stepCard}>
+            <View style={styles.stepHeader}>
+              <View style={styles.stepNumber}><ThemedText type="smallBold" style={styles.stepNumberText}>1</ThemedText></View>
+              <View><ThemedText type="default" style={styles.stepTitle}>Drone serial</ThemedText><ThemedText type="small" themeColor="textSecondary">Required before scanning</ThemedText></View>
+            </View>
+            <ReferenceInputCard value={droneSerialInput} onChangeText={(text) => setDroneSerialInput(sanitizeAlphanumeric(text, 9))} />
+          </ThemedView>
+
+          <Animated.View entering={WORKFLOW_ENTER}>
+            <ThemedView type="backgroundElement" style={styles.stepCard}>
+              <View style={styles.stepHeader}>
+                <View style={[styles.stepNumber, !hasDroneSerial && styles.inactiveNumber]}><ThemedText type="smallBold" style={styles.stepNumberText}>2</ThemedText></View>
+                <View><ThemedText type="default" style={styles.stepTitle}>Battery QR code</ThemedText><ThemedText type="small" themeColor="textSecondary">Use your device camera to capture it.</ThemedText></View>
+              </View>
+              <AnimatedPressable
+                disabled={!hasDroneSerial}
+                style={[styles.primaryButton, !hasDroneSerial && styles.disabledButton]}
+                onPress={() => setScannerOpen(true)}
+                accessibilityLabel="Scan battery QR code">
+                <ThemedText style={styles.primaryButtonText}>{hasDroneSerial ? 'Scan battery' : 'Enter drone serial first'}</ThemedText>
+              </AnimatedPressable>
+            </ThemedView>
+          </Animated.View>
+
+          <ThemedView type="backgroundElement" style={styles.reviewCard}>
+            <View style={styles.stepHeader}>
+              <View style={[styles.stepNumber, hasPendingScans ? styles.successNumber : styles.inactiveNumber]}><ThemedText type="smallBold" style={styles.stepNumberText}>{hasPendingScans ? '✓' : '3'}</ThemedText></View>
+              <View style={styles.reviewCopy}>
+                <ThemedText type="default" style={styles.stepTitle}>{hasPendingScans ? `${pendingScans.length} scan${pendingScans.length === 1 ? '' : 's'} ready` : 'Review scans'}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">{hasPendingScans ? 'Swipe a row left to remove it before saving.' : 'Scans will be listed here before saving.'}</ThemedText>
+              </View>
+            </View>
+            <View style={styles.scanList}>
+              {hasPendingScans ? pendingScans.map((scan, index) => (
+                <Animated.View key={scan.id} entering={SCAN_ROW_ENTER} exiting={SCAN_ROW_EXIT} layout={SCAN_ROW_LAYOUT}>
+                  <ReanimatedSwipeable
+                    containerStyle={styles.swipeableRow}
+                    friction={2}
+                    rightThreshold={40}
+                    onSwipeableOpen={(direction) => {
+                      if (direction === SwipeDirection.RIGHT) removeScan(scan.id);
+                    }}
+                    renderRightActions={() => (
+                      <Pressable style={styles.deleteAction} onPress={() => removeScan(scan.id)} accessibilityLabel={`Remove scan ${index + 1}`}>
+                        <ThemedText type="smallBold" style={styles.deleteActionText}>Remove</ThemedText>
+                      </Pressable>
+                    )}>
+                    <View style={[styles.scanRow, { backgroundColor: theme.background }]}>
+                      <ThemedText type="smallBold" style={styles.scanIndex}>{index + 1}</ThemedText>
+                      <View style={styles.scanValues}>
+                        <ThemedText type="small" themeColor="textSecondary">Drone {scan.droneSerial}</ThemedText>
+                        <ThemedText type="code" style={[styles.scanBattery, { color: theme.text }]}>{scan.batteryCode}</ThemedText>
+                      </View>
+                    </View>
+                  </ReanimatedSwipeable>
+                </Animated.View>
+              )) : (
+                <Animated.View entering={SCAN_ROW_ENTER} exiting={SCAN_ROW_EXIT} style={styles.emptyScanList}>
+                  <ThemedText type="small" themeColor="textSecondary">No scans yet</ThemedText>
+                </Animated.View>
+              )}
+            </View>
+          </ThemedView>
+
+          <View style={styles.footerCredits}>
+            <ThemedText type="smallBold">DTS</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">By Richard William Flores</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">Expires September 2027</ThemedText>
+          </View>
         </ScrollView>
+
+        {hasPendingScans ? (
+          <View style={[styles.bottomAction, { backgroundColor: theme.background }]}>
+            <AnimatedPressable
+              disabled={syncing || iosMode}
+              style={[styles.primaryButton, (syncing || iosMode) && styles.disabled]}
+              onPress={handleSync}
+              accessibilityLabel={iosMode ? 'Google Drive unavailable in iOS mode' : 'Save scan to Google Drive'}>
+              {syncing ? <ActivityIndicator color="#ffffff" /> : <ThemedText style={styles.primaryButtonText}>{iosMode ? 'Save unavailable in iOS mode' : 'Save to Google Drive'}</ThemedText>}
+            </AnimatedPressable>
+            {iosMode ? <ThemedText type="small" themeColor="textSecondary" style={styles.syncUnavailableText}>Google Drive unavailable in iOS mode</ThemedText> : null}
+          </View>
+        ) : null}
       </SafeAreaView>
+
+      <CameraScannerCard
+        isOpen={scannerOpen}
+        onDismiss={() => setScannerOpen(false)}
+        onScan={(data) => {
+          setPendingScans((scans) => [...scans, {
+            id: `${Date.now()}-${data}-${scans.length}`,
+            droneSerial: droneSerialInput,
+            batteryCode: data,
+          }]);
+          setScannerOpen(false);
+        }}
+      />
+      <AccountSheet visible={accountOpen} user={user} loading={loading} isIosMode={iosMode} onDismiss={() => setAccountOpen(false)} onSignOut={handleSignOut} />
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    maxWidth: MaxContentWidth,
-    width: '100%',
-  },
-  scrollContent: {
-    flex: 1,
-  },
-  scrollContainer: {
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: Spacing.four,
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-  gateContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gateSafeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.five,
-    maxWidth: MaxContentWidth,
-    width: '100%',
-  },
-  gateHero: {
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-  },
-  gateTitle: {
-    textAlign: 'center',
-    fontSize: 36,
-    fontWeight: '700',
-    lineHeight: 42,
-  },
-  gateSubtitle: {
-    textAlign: 'center',
-    marginTop: Spacing.two,
-    maxWidth: 320,
-  },
-  gateButton: {
-    backgroundColor: '#007AFF',
-    alignSelf: 'stretch',
-    paddingVertical: Spacing.two,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-    height: 48,
-  },
-  gateButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  buttonPressed: {
-    opacity: 0.8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  syncButton: {
-    backgroundColor: '#007AFF',
-    alignSelf: 'stretch',
-    paddingVertical: Spacing.two,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-    height: 48,
-    marginTop: Spacing.two,
-  },
-  syncButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  syncButtonDisabled: {
-    backgroundColor: '#AEAEB2',
-    shadowColor: 'transparent',
-    elevation: 0,
-    opacity: 0.5,
-  },
-  overlayContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overlayCard: {
-    padding: Spacing.five,
-    borderRadius: Spacing.three,
-    alignItems: 'center',
-    gap: Spacing.three,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-    minWidth: 200,
-  },
-  overlaySpinner: {
-    marginBottom: Spacing.one,
-  },
-  overlayText: {
-    fontWeight: '600',
-  },
-  signOutButton: {
-    borderColor: '#FF3B30',
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingVertical: Spacing.two - 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.two,
-  },
-  signOutButtonText: {
-    color: '#FF3B30',
-    fontWeight: '600',
-  },
-  footerCredits: {
-    alignItems: 'center',
-    textAlign: 'center',
-    opacity: 0.5,
-    marginTop: Spacing.four
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
+  accountButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  accountProfilePhoto: { width: 44, height: 44, borderRadius: 22 },
+  scrollContent: { padding: Spacing.four, gap: Spacing.three, paddingBottom: Spacing.six },
+  intro: { gap: Spacing.one, marginBottom: Spacing.one },
+  introTitle: { fontWeight: '700' },
+  stepCard: { borderRadius: 20, padding: Spacing.three, gap: Spacing.three },
+  reviewCard: { borderRadius: 20, padding: Spacing.three, gap: Spacing.three },
+  stepHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  stepNumber: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' },
+  successNumber: { backgroundColor: '#34C759' },
+  inactiveNumber: { backgroundColor: '#8E8E93' },
+  stepNumberText: { color: '#ffffff', fontWeight: '800' },
+  stepTitle: { fontWeight: '700' },
+  reviewCopy: { flex: 1 },
+  scanList: { gap: Spacing.two },
+  swipeableRow: { borderRadius: Spacing.two, overflow: 'hidden' },
+  scanRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  emptyScanList: { minHeight: 120, borderRadius: Spacing.two, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(128, 128, 128, 0.35)', borderStyle: 'dashed' },
+  footerCredits: { alignItems: 'center', gap: Spacing.one, paddingTop: Spacing.three, paddingBottom: Spacing.four },
+  scanIndex: { width: 24, color: '#007AFF', textAlign: 'center' },
+  scanValues: { flex: 1, gap: Spacing.one },
+  scanBattery: { fontSize: 16 },
+  deleteAction: { width: 96, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF3B30' },
+  deleteActionText: { color: '#ffffff' },
+  primaryButton: { minHeight: 52, borderRadius: 26, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.four },
+  primaryButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 16 },
+  bottomAction: { paddingHorizontal: Spacing.four, paddingTop: Spacing.two, paddingBottom: Spacing.three, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(128, 128, 128, 0.25)', gap: Spacing.two },
+  syncUnavailableText: { textAlign: 'center' },
+  disabled: { opacity: 0.55 },
+  disabledButton: { backgroundColor: '#8E8E93' },
+  gateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  gateSafeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth, justifyContent: 'center', gap: Spacing.five, padding: Spacing.four },
+  gateHero: { alignItems: 'center', gap: Spacing.two },
+  gateTitle: { fontSize: 40, lineHeight: 46, fontWeight: '800' },
+  gateSubtitle: { maxWidth: 330, textAlign: 'center' },
 });

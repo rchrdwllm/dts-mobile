@@ -1,5 +1,6 @@
-import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin';
-import { appendScanToXml, serializeScanRecord, batteryCodeExistsInXml } from './xml';
+import { isIosMode } from '@/config/ios-mode';
+import { getGoogleOneTapSignIn } from '@/utils/google-signin';
+import { appendScanToXml, serializeScanRecord, batteryCodeExistsInXml, type ScanRecordInput } from './xml';
 
 export interface UploadResult {
   fileId: string;
@@ -8,6 +9,12 @@ export interface UploadResult {
 
 
 export const TARGET_FOLDER_ID = process.env.EXPO_PUBLIC_GDRIVE_TARGET_FOLDER_ID || '1A2B3C4D5E6F7G8H9I0J';
+
+function assertDriveSyncIsAvailable(): void {
+  if (isIosMode()) {
+    throw new Error('Google Drive sync is unavailable in iOS mode.');
+  }
+}
 
 /**
  * Searches for an existing file with given name in the target Google Drive folder.
@@ -232,6 +239,9 @@ export async function syncScanToGoogleDrive(
   droneSerial: string,
   date?: string
 ): Promise<UploadResult> {
+  assertDriveSyncIsAvailable();
+
+  const GoogleOneTapSignIn = getGoogleOneTapSignIn();
   let tokens = await GoogleOneTapSignIn.getTokens();
   let accessToken = tokens.accessToken;
 
@@ -282,5 +292,69 @@ export async function syncScanToGoogleDrive(
       }
     }
     throw error;
+  }
+}
+
+/**
+ * Appends one reviewed batch in a single Drive update. All duplicates are
+ * validated before the XML is written, so a rejected batch leaves the file
+ * unchanged.
+ */
+export async function syncScansToGoogleDrive(scans: ScanRecordInput[]): Promise<UploadResult> {
+  assertDriveSyncIsAvailable();
+
+  if (scans.length === 0) {
+    throw new Error('Add at least one scan before saving.');
+  }
+
+  const batteryCodes = scans.map((scan) => scan.batteryCode?.trim() ?? '');
+  if (batteryCodes.some((code) => !code)) {
+    throw new Error('Every scan must include a battery serial.');
+  }
+
+  const duplicateInBatch = batteryCodes.find((code, index) =>
+    batteryCodes.slice(0, index).some((previous) => previous.toLowerCase() === code.toLowerCase())
+  );
+  if (duplicateInBatch) {
+    throw new Error(`Battery serial '${duplicateInBatch}' appears more than once in this batch.`);
+  }
+
+  const GoogleOneTapSignIn = getGoogleOneTapSignIn();
+  const tokens = await GoogleOneTapSignIn.getTokens();
+
+  const performSync = async (accessToken: string): Promise<UploadResult> => {
+    const fileName = 'Battery_DATA.xml';
+    const existingFileId = await findFileInFolder(accessToken, TARGET_FOLDER_ID, fileName);
+
+    if (!existingFileId) {
+      const [firstScan, ...remainingScans] = scans;
+      const xmlContent = remainingScans.reduce(
+        (xml, scan) => appendScanToXml(xml, scan),
+        serializeScanRecord(firstScan)
+      );
+      return uploadXmlFile(accessToken, TARGET_FOLDER_ID, fileName, xmlContent);
+    }
+
+    const existingXml = await downloadFileContent(accessToken, existingFileId);
+    const duplicateInDrive = batteryCodes.find((code) => batteryCodeExistsInXml(existingXml, code));
+    if (duplicateInDrive) {
+      throw new Error(`Battery serial '${duplicateInDrive}' already exists in ${fileName}.`);
+    }
+
+    const updatedXml = scans.reduce((xml, scan) => appendScanToXml(xml, scan), existingXml);
+    return updateXmlFile(accessToken, existingFileId, updatedXml);
+  };
+
+  try {
+    return await performSync(tokens.accessToken);
+  } catch (error) {
+    const isUnauthorized = error instanceof Error &&
+      (error.message.includes('401') || error.message.toLowerCase().includes('unauthorized'));
+
+    if (!isUnauthorized) throw error;
+
+    await GoogleOneTapSignIn.clearCachedAccessToken(tokens.accessToken);
+    const newTokens = await GoogleOneTapSignIn.getTokens();
+    return performSync(newTokens.accessToken);
   }
 }

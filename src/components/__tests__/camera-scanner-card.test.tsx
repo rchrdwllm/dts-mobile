@@ -1,7 +1,7 @@
 import React from 'react';
-import { create, act } from 'react-test-renderer';
+import { act, create } from 'react-test-renderer';
+
 import { CameraScannerCard } from '../camera-scanner-card';
-import { ThemedText } from '../themed-text';
 import { useCameraPermissions } from 'expo-camera';
 
 jest.mock('expo-camera', () => {
@@ -9,11 +9,13 @@ jest.mock('expo-camera', () => {
   const ReactMock = require('react');
   const { View } = require('react-native');
   /* eslint-enable @typescript-eslint/no-require-imports */
-  return {
-    CameraView: (props: any) =>
-      ReactMock.createElement(View, { testID: 'mock-camera-view', ...props }),
-    useCameraPermissions: jest.fn(),
-  };
+  const CameraView = (props: any) =>
+    ReactMock.createElement(View, { testID: 'mock-camera-view', ...props });
+  CameraView.isModernBarcodeScannerAvailable = false;
+  CameraView.launchScanner = jest.fn();
+  CameraView.dismissScanner = jest.fn();
+  CameraView.onModernBarcodeScanned = jest.fn(() => ({ remove: jest.fn() }));
+  return { CameraView, useCameraPermissions: jest.fn() };
 });
 
 describe('CameraScannerCard', () => {
@@ -21,102 +23,54 @@ describe('CameraScannerCard', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it('renders permission prompt when permission is not granted', () => {
-    mockUseCameraPermissions.mockReturnValue([{ granted: false }, jest.fn()]);
-
-    let tree!: ReturnType<typeof create>;
-    act(() => {
-      tree = create(
-        <CameraScannerCard
-          scanned={false}
-          onScan={jest.fn()}
-          onRescan={jest.fn()}
-        />
-      );
-    });
-
-    const textNodes = tree.root.findAllByType(ThemedText);
-    const textContents = textNodes.map((node) => node.props.children);
-
-    expect(textContents).toContain('Grant Camera Access');
-    expect(
-      textContents.some(
-        (child) =>
-          typeof child === 'string' &&
-          child.includes('Camera access is required to scan physical QR codes.')
-      )
-    ).toBe(true);
-  });
-
-  it('renders CameraView and viewfinder overlay when permission is granted', () => {
     mockUseCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
+  });
 
+  it('does not mount a camera preview until the guided scan flow is opened', () => {
     let tree!: ReturnType<typeof create>;
     act(() => {
       tree = create(
-        <CameraScannerCard
-          scanned={false}
-          onScan={jest.fn()}
-          onRescan={jest.fn()}
-        />
+        <CameraScannerCard isOpen={false} onDismiss={jest.fn()} onScan={jest.fn()} />
       );
     });
 
-    const textNodes = tree.root.findAllByType(ThemedText);
-    const textContents = textNodes.map((node) => node.props.children);
+    expect(() => tree.root.findByProps({ testID: 'mock-camera-view' })).toThrow();
+  });
 
-    expect(textContents).toContain('Ready');
-    expect(textContents).toContain('Align QR Code in target box');
+  it('shows a cancellable camera fallback when opened without the modern scanner', () => {
+    const onDismiss = jest.fn();
+    let tree!: ReturnType<typeof create>;
+    act(() => {
+      tree = create(
+        <CameraScannerCard isOpen onDismiss={onDismiss} onScan={jest.fn()} />
+      );
+    });
+
     expect(tree.root.findByProps({ testID: 'mock-camera-view' })).toBeTruthy();
+    const cancelButton = tree.root.findByProps({ accessibilityLabel: 'Cancel battery scan' });
+
+    act(() => {
+      cancelButton.props.onPress();
+    });
+
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('renders scan locked state and rescan button when scanned is true', () => {
-    mockUseCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
-
+  it('returns the sanitized battery value from the fallback scanner', () => {
+    const onScan = jest.fn();
     let tree!: ReturnType<typeof create>;
     act(() => {
       tree = create(
-        <CameraScannerCard
-          scanned={true}
-          scannedValue="SCANNED-QR-12345"
-          onScan={jest.fn()}
-          onRescan={jest.fn()}
-        />
+        <CameraScannerCard isOpen onDismiss={jest.fn()} onScan={onScan} />
       );
     });
 
-    const textNodes = tree.root.findAllByType(ThemedText);
-    const textContents = textNodes.map((node) => node.props.children);
-
-    expect(textContents).toContain('Scan Locked');
-    expect(textContents).toContain('Battery Serial No. Captured');
-    expect(textContents).toContain('SCANNED-QR-12345');
-    expect(textContents).toContain('Rescan QR Code');
-  });
-
-  it('truncates scanned QR code payload to 9 characters', () => {
-    mockUseCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
-    const mockOnScan = jest.fn();
-
-    let tree!: ReturnType<typeof create>;
     act(() => {
-      tree = create(
-        <CameraScannerCard
-          scanned={false}
-          onScan={mockOnScan}
-          onRescan={jest.fn()}
-        />
-      );
+      tree.root
+        .findByProps({ testID: 'mock-camera-view' })
+        .props.onBarcodeScanned({ data: '1234567890EXTRA' });
     });
 
-    const cameraView = tree.root.findByProps({ testID: 'mock-camera-view' });
-
-    act(() => {
-      cameraView.props.onBarcodeScanned({ data: '1234567890EXTRA' });
-    });
-
-    expect(mockOnScan).toHaveBeenCalledWith('123456789');
+    expect(onScan).toHaveBeenCalledWith('123456789');
   });
 });

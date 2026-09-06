@@ -58,10 +58,42 @@ describe('useAuth hook', () => {
     expect(GoogleOneTapSignIn.configure).toHaveBeenCalledWith({
       webClientId: 'autoDetect',
         scopes: [
-          'https://www.googleapis.com/auth/drive.file',
+          'https://www.googleapis.com/auth/drive',
         ],
     });
     expect(GoogleOneTapSignIn.getCurrentUser).toHaveBeenCalled();
+  });
+
+  it('provides the permanent iOS test account without initializing Google sign-in', () => {
+    const originalIosMode = process.env.EXPO_PUBLIC_IOS_MODE;
+    process.env.EXPO_PUBLIC_IOS_MODE = 'true';
+
+    try {
+      let hookValues!: ReturnType<typeof useAuth>;
+
+      act(() => {
+        create(
+          React.createElement(TestComponent, {
+            onRender: (value) => {
+              hookValues = value;
+            },
+          })
+        );
+      });
+
+      expect(hookValues.user).toEqual({
+        name: 'iOS Test User',
+        photo: null,
+        email: 'ios-test@example.invalid',
+      });
+      expect(hookValues.idToken).toBeNull();
+      expect(hookValues.isAuthenticated).toBe(true);
+      expect(hookValues.isLoading).toBe(false);
+      expect(GoogleOneTapSignIn.configure).not.toHaveBeenCalled();
+      expect(GoogleOneTapSignIn.getCurrentUser).not.toHaveBeenCalled();
+    } finally {
+      process.env.EXPO_PUBLIC_IOS_MODE = originalIosMode;
+    }
   });
 
   it('should automatically hydrate user session on mount when getCurrentUser returns active user', () => {
@@ -207,7 +239,7 @@ describe('useAuth hook', () => {
       expect(GoogleOneTapSignIn.configure).toHaveBeenCalledWith({
         webClientId: 'test-web-client-id',
         scopes: [
-          'https://www.googleapis.com/auth/drive.file',
+          'https://www.googleapis.com/auth/drive',
         ],
       });
     } finally {
@@ -215,4 +247,3 @@ describe('useAuth hook', () => {
     }
   });
 });
-

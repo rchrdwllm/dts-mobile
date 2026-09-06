@@ -2,6 +2,7 @@ import React from 'react';
 import { create, act } from 'react-test-renderer';
 import { TextInput } from 'react-native';
 import { ReferenceInputCard } from '../reference-input-card';
+import { ThemedView } from '../themed-view';
 
 describe('ReferenceInputCard', () => {
   it('renders correctly with label and placeholder', () => {
@@ -54,5 +55,15 @@ describe('ReferenceInputCard', () => {
     const input = tree.root.findByType(TextInput);
     expect(input.props.value).toBe('REF99');
     expect(input.props.placeholder).toBe('Custom Placeholder');
+  });
+
+  it('does not add another inset inside its parent section', () => {
+    let tree!: ReturnType<typeof create>;
+    act(() => {
+      tree = create(<ReferenceInputCard value="" onChangeText={jest.fn()} />);
+    });
+
+    const card = tree.root.findByType(ThemedView);
+    expect(card.props.style).toMatchObject({ padding: 0 });
   });
 });

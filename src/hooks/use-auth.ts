@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import {
-  GoogleOneTapSignIn,
-  isSuccessResponse
-} from 'react-native-nitro-google-signin';
+import { IOS_TEST_USER, isIosMode } from '@/config/ios-mode';
+import { getGoogleOneTapSignIn, isGoogleSignInSuccessResponse } from '@/utils/google-signin';
 
 export interface GoogleUser {
   name: string | null;
@@ -11,20 +9,28 @@ export interface GoogleUser {
 }
 
 export function useAuth() {
-  const [user, setUser] = useState<GoogleUser | null>(null);
+  const [user, setUser] = useState<GoogleUser | null>(() => isIosMode() ? IOS_TEST_USER : null);
   const [idToken, setIdToken] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isIosMode());
+  const [isLoading, setIsLoading] = useState<boolean>(() => !isIosMode());
 
   useEffect(() => {
     let isMounted = true;
+
+    if (isIosMode()) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const GoogleOneTapSignIn = getGoogleOneTapSignIn();
 
     // Configure native Google One Tap Sign-In on mount
     const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'autoDetect';
     GoogleOneTapSignIn.configure({
       webClientId: clientId,
       scopes: [
-        'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/drive',
       ],
     });
 
@@ -68,6 +74,10 @@ export function useAuth() {
   }, []);
 
   const signIn = async () => {
+    if (isIosMode()) return;
+
+    const GoogleOneTapSignIn = getGoogleOneTapSignIn();
+
     try {
       console.log('[DEBUG] 1. Checking play services...');
       await GoogleOneTapSignIn.checkPlayServices();
@@ -77,7 +87,7 @@ export function useAuth() {
       console.log('[DEBUG] presentExplicitSignIn() response:', JSON.stringify(response));
 
       console.log('[DEBUG] 5. Final response type:', response?.type);
-      if (response && isSuccessResponse(response)) {
+      if (response && isGoogleSignInSuccessResponse(response)) {
         console.log('[DEBUG] Sign-in succeeded. User data:', JSON.stringify(response.data.user));
         const { user: googleUser, idToken: token } = response.data;
         setUser({
@@ -97,6 +107,10 @@ export function useAuth() {
   };
 
   const signOut = async () => {
+    if (isIosMode()) return;
+
+    const GoogleOneTapSignIn = getGoogleOneTapSignIn();
+
     try {
       await GoogleOneTapSignIn.signOut();
       setUser(null);
@@ -117,4 +131,3 @@ export function useAuth() {
     signOut,
   };
 }
-

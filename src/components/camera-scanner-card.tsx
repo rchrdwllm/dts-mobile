@@ -1,268 +1,135 @@
-import React from 'react';
-import { StyleSheet, View, Pressable, ActivityIndicator } from 'react-native';
-import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-
-import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
+import { useCallback, useEffect } from 'react';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-
 import { sanitizeAlphanumeric } from '@/utils/sanitize';
 
+import { ThemedText } from './themed-text';
+
 export type CameraScannerCardProps = {
-  scanned: boolean;
-  scannedValue?: string;
+  isOpen: boolean;
+  onDismiss: () => void;
   onScan: (data: string) => void;
-  onRescan: () => void;
-  title?: string;
 };
 
-export function CameraScannerCard({
-  scanned,
-  scannedValue,
-  onScan,
-  onRescan,
-  title = 'Battery Serial No.',
-}: CameraScannerCardProps) {
-  const theme = useTheme();
+export function CameraScannerCard({ isOpen, onDismiss, onScan }: CameraScannerCardProps) {
   const [permission, requestPermission] = useCameraPermissions();
+  const useFallback = !CameraView.isModernBarcodeScannerAvailable;
 
-  const handleBarcodeScanned = (result: BarcodeScanningResult) => {
-    if (!scanned && result.data) {
-      onScan(sanitizeAlphanumeric(result.data, 9));
-    }
+  const completeScan = useCallback((data: string) => {
+    const serial = sanitizeAlphanumeric(data, 9);
+    if (!serial) return;
+    onScan(serial);
+  }, [onScan]);
+
+  useEffect(() => {
+    if (!isOpen || useFallback) return;
+
+    const subscription = CameraView.onModernBarcodeScanned((result) => {
+      void CameraView.dismissScanner();
+      completeScan(result.data);
+    });
+
+    void CameraView.launchScanner({ barcodeTypes: ['qr', 'datamatrix'] }).catch(() => {
+      subscription.remove();
+      onDismiss();
+    });
+
+    return () => subscription.remove();
+  }, [completeScan, isOpen, onDismiss, useFallback]);
+
+  const handleFallbackScan = (result: BarcodeScanningResult) => {
+    completeScan(result.data);
   };
 
-  const renderContent = () => {
-    if (!permission) {
-      return (
-        <View style={styles.stateContainer}>
-          <ActivityIndicator size="small" color={theme.textSecondary} />
-          <ThemedText type="small" themeColor="textSecondary">
-            Loading camera permissions...
-          </ThemedText>
-        </View>
-      );
-    }
+  if (!isOpen || !useFallback) return null;
 
-    if (!permission.granted) {
-      return (
-        <View style={styles.stateContainer}>
-          <ThemedText type="default" style={styles.centerText}>
-            Camera access is required to scan physical QR codes.
-          </ThemedText>
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              { backgroundColor: '#007AFF' },
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={requestPermission}
-          >
-            <ThemedText type="default" style={styles.actionButtonText}>
-              Grant Camera Access
-            </ThemedText>
-          </Pressable>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.cameraViewport}>
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          barcodeScannerSettings={{
-            barcodeTypes: ['qr', 'datamatrix'],
-          }}
-          onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-        />
-
-        {/* Viewfinder Alignment Overlay */}
-        {!scanned && (
-          <View style={styles.overlayContainer}>
-            <View style={styles.targetFrame}>
-              <View style={[styles.corner, styles.cornerTL]} />
-              <View style={[styles.corner, styles.cornerTR]} />
-              <View style={[styles.corner, styles.cornerBL]} />
-              <View style={[styles.corner, styles.cornerBR]} />
-            </View>
-            <ThemedText type="small" style={styles.scanInstruction}>
-              Align QR Code in target box
-            </ThemedText>
-          </View>
-        )}
-
-        {/* Locked State / Rescan Overlay */}
-        {scanned && (
-          <View style={styles.lockedOverlay}>
-            <View style={styles.lockedCard}>
-              <ThemedText type="smallBold" style={styles.successTitle}>
-                Battery Serial No. Captured
-              </ThemedText>
-              {scannedValue ? (
-                <ThemedText type="code" numberOfLines={2} style={styles.scannedText}>
-                  {scannedValue}
-                </ThemedText>
-              ) : null}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  { backgroundColor: '#007AFF' },
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={onRescan}
-              >
-                <ThemedText type="default" style={styles.actionButtonText}>
-                  Rescan QR Code
-                </ThemedText>
-              </Pressable>
-            </View>
-          </View>
-        )}
-      </View>
-    );
-  };
+  const permissionContent = !permission ? (
+    <View style={styles.centeredState}>
+      <ActivityIndicator />
+      <ThemedText themeColor="textSecondary">Preparing camera…</ThemedText>
+    </View>
+  ) : !permission.granted ? (
+    <View style={styles.centeredState}>
+      <ThemedText style={styles.permissionText}>
+        Camera access is required to scan a battery QR code.
+      </ThemedText>
+      <Pressable style={styles.primaryButton} onPress={requestPermission}>
+        <ThemedText style={styles.primaryButtonText}>Allow Camera Access</ThemedText>
+      </Pressable>
+    </View>
+  ) : (
+    <CameraView
+      style={StyleSheet.absoluteFill}
+      facing="back"
+      barcodeScannerSettings={{ barcodeTypes: ['qr', 'datamatrix'] }}
+      onBarcodeScanned={handleFallbackScan}
+    />
+  );
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <View style={styles.headerRow}>
-        <ThemedText type="smallBold">{title}</ThemedText>
-        <ThemedText
-          type="small"
-          themeColor="textSecondary"
-          style={styles.badgeText}
-        >
-          {scanned ? 'Scan Locked' : 'Ready'}
-        </ThemedText>
+    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
+      <View style={styles.container}>
+        <View style={styles.cameraArea}>{permissionContent}</View>
+        {permission?.granted ? (
+          <View pointerEvents="none" style={styles.overlay}>
+            <View style={styles.targetFrame} />
+            <ThemedText style={styles.scanInstruction}>Align the battery QR code in the frame</ThemedText>
+          </View>
+        ) : null}
+        <Pressable
+          style={styles.cancelButton}
+          onPress={onDismiss}
+          accessibilityLabel="Cancel battery scan">
+          <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+        </Pressable>
       </View>
-
-      {renderContent()}
-    </ThemedView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    alignSelf: 'stretch',
+  container: { flex: 1, backgroundColor: '#000' },
+  cameraArea: { flex: 1 },
+  centeredState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
     paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-    gap: Spacing.three,
+    backgroundColor: '#ffffff',
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  permissionText: { textAlign: 'center' },
+  primaryButton: {
+    minHeight: 48,
+    borderRadius: 24,
+    paddingHorizontal: Spacing.four,
     alignItems: 'center',
-  },
-  badgeText: {
-    fontSize: 12,
-  },
-  stateContainer: {
-    height: 220,
-    borderRadius: Spacing.three,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.four,
-    gap: Spacing.three,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: '#007AFF',
   },
-  centerText: {
-    textAlign: 'center',
-  },
-  cameraViewport: {
-    height: 220,
-    borderRadius: Spacing.three,
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#000000',
-  },
-  overlayContainer: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  targetFrame: {
-    width: 140,
-    height: 140,
-    position: 'relative',
-  },
-  corner: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderColor: '#007AFF',
-  },
-  cornerTL: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-  },
-  cornerTR: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-  },
-  cornerBL: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-  },
-  cornerBR: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-  },
+  primaryButtonText: { color: '#ffffff', fontWeight: '700' },
+  overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
+  targetFrame: { width: 236, height: 236, borderWidth: 3, borderColor: '#ffffff', borderRadius: Spacing.three },
   scanInstruction: {
     color: '#ffffff',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-    borderRadius: 12,
-    fontSize: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-  },
-  lockedOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.three,
-  },
-  lockedCard: {
-    alignItems: 'center',
-    gap: Spacing.two,
-    width: '100%',
-  },
-  successTitle: {
-    color: '#34C759',
-  },
-  scannedText: {
-    color: '#ffffff',
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: Spacing.one,
-  },
-  actionButton: {
+    paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    borderRadius: 20,
+  },
+  cancelButton: {
+    position: 'absolute',
+    top: 64,
+    left: Spacing.three,
+    minHeight: 44,
+    paddingHorizontal: Spacing.three,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 160,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
-  actionButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  buttonPressed: {
-    opacity: 0.8,
-  },
+  cancelButtonText: { color: '#ffffff', fontWeight: '700' },
 });
